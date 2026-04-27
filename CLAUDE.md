@@ -22,10 +22,35 @@ Język interfejsu: **angielski** (przyciski, walidacje, komunikaty). Dane bankow
 - **Brak wieloużytkownikowych zespołów / współdzielenia danych** na MVP — to konta osobiste.
 
 ## 🐳 Środowisko Docker
-- Projekt musi być w pełni skonteneryzowany.
-- Użyj Laravel Sail lub natywnego pliku `docker-compose.yml`, aby środowisko deweloperskie (PHP, PostgreSQL, Redis, Node.js, Mailpit) dało się uruchomić jednym poleceniem (`docker compose up -d`).
+- Projekt musi być w pełni skonteneryzowany. Używamy **Laravel Sail** (`compose.yaml` w roocie).
+- Stack: `laravel.test` (php-fpm 8.5), `pgsql` (Postgres 18-alpine), `redis`, `mailpit`.
 - Migracje uruchamiane automatycznie w entrypoint php-fpm: `php artisan migrate --force`.
 - **Zawsze na starcie projektu oraz przed modyfikacjami infrastruktury**, weryfikuj i aktualizuj zawartość pliku `.dockerignore`, aby nie budować obrazów z niepotrzebnymi plikami (np. `vendor/`, `node_modules/`, `.git/`).
+
+### 🔄 Lifecycle Saila (uruchamianie / zatrzymywanie)
+Sail zjada kilkaset MB RAM bezczynnie — startujemy go **tylko kiedy potrzebny** i zatrzymujemy po sesji.
+
+**Kiedy odpalać `./vendor/bin/sail up -d` (lub `sail up -d` z aliasem):**
+- Przed uruchomieniem migracji, `sail artisan ...`, `sail tinker`.
+- Przed uruchomieniem testów Pest na PostgreSQL (`sail test`).
+- Przed weryfikacją UI w przeglądarce (http://localhost).
+- Przed `sail npm run dev` (HMR Vite).
+- Po zmianach w `compose.yaml`, Dockerfile lub usługach infra.
+
+**Kiedy NIE potrzebujesz Saila:**
+- Sam edytujesz pliki PHP/TS/CSS — bez testów / DB.
+- Pest na sqlite in-memory (`vendor/bin/pest` na hoście — używa `pdo_sqlite`).
+- Larastan, Pint, Rector — wszystkie działają na hoście bez kontenera.
+- `npm run build` — Node 20 lokalnie wystarcza.
+
+**Zatrzymywanie:**
+- `./vendor/bin/sail down` — zatrzymuje kontenery (volumes zostają).
+- `./vendor/bin/sail down -v` — usuwa też volumes (pełen reset DB) — używaj świadomie.
+
+**Konwencja agenta (Claude):**
+1. Przed komendą wymagającą Sail (np. `sail test`, `sail artisan migrate`, sprawdzenie UI w przeglądarce) — najpierw sprawdź `docker ps`, zobacz czy kontenery działają. Jeśli nie — `sail up -d` i zaczekaj na healthcheck pgsql.
+2. Po skończeniu większego bloku pracy wymagającego Saila (np. zakończony etap, koniec sesji, koniec serii testów end-to-end) — zaproponuj użytkownikowi `sail down`, nie zatrzymuj sam bez pytania (może mieć inny window otwarty).
+3. Nie odpalaj Saila "na zapas" — koszt RAM jest realny.
 
 ## 📦 Kontrola wersji (Git)
 - **Bezwzględny zakaz oznaczania commitów podpisem AI:** Żaden commit message ani metadata nie może zawierać informacji, że kod został wygenerowany lub wysłany przez "Claude Code", "AI", "Claude", itp. Używaj wyłącznie naturalnych, ludzkich komunikatów w stylu Conventional Commits.

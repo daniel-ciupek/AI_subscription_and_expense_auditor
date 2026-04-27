@@ -1,0 +1,19 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/
+        - database/
+
+    level: 8
+
+    excludePaths:
+        - vendor/
+        - storage/
+        - bootstrap/cache/
+        - database/migrations/*
+        # Breeze scaffolding — vendored auth/profile controllers; will be revisited with our own typed code
+        - app/Http/Controllers/Auth/*
+        - app/Http/Controllers/ProfileController.php
+        - app/Http/Requests/ProfileUpdateRequest.php

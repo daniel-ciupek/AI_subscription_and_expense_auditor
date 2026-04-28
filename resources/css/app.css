@@ -1,3 +1,62 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    html {
+        font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+        background-color: theme('colors.bg.base');
+        color: theme('colors.text.primary');
+        color-scheme: dark;
+    }
+
+    body {
+        min-height: 100vh;
+        background-image: theme('backgroundImage.mesh');
+        background-attachment: fixed;
+    }
+
+    *:focus {
+        outline: none;
+    }
+
+    *:focus-visible {
+        outline: 2px solid theme('colors.accent.neon');
+        outline-offset: 2px;
+        border-radius: 0.5rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@layer components {
+    .glass {
+        @apply bg-white/5 backdrop-blur-md border border-white/10;
+    }
+
+    .glass-elevated {
+        @apply bg-white/10 backdrop-blur-md border border-white/15;
+    }
+
+    .skeleton {
+        background: linear-gradient(
+            90deg,
+            theme('colors.bg.surface') 0%,
+            theme('colors.bg.elevated') 50%,
+            theme('colors.bg.surface') 100%
+        );
+        background-size: 200% 100%;
+        @apply animate-shimmer rounded-2xl;
+    }
+}

@@ -1,9 +1,38 @@
-import ApplicationLogo from '@/Components/ApplicationLogo';
-import Dropdown from '@/Components/Dropdown';
-import NavLink from '@/Components/NavLink';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
-import { Link, usePage } from '@inertiajs/react';
-import { PropsWithChildren, ReactNode, useState } from 'react';
+import { Link, usePage, router } from '@inertiajs/react';
+import { PropsWithChildren, ReactNode } from 'react';
+import {
+    LayoutDashboard,
+    Upload,
+    Repeat,
+    User,
+    LogOut,
+    Sparkles,
+    LucideIcon,
+} from 'lucide-react';
+import { ToastContainer } from '@/Components/UI/Toast';
+import { cn } from '@/lib/cn';
+
+interface NavItem {
+    label: string;
+    href: string;
+    icon: LucideIcon;
+    routeName: string;
+}
+
+const navItems: NavItem[] = [
+    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
+    { label: 'Imports', href: '/dashboard', icon: Upload, routeName: 'imports.index' },
+    { label: 'Subscriptions', href: '/dashboard', icon: Repeat, routeName: 'subscriptions.index' },
+    { label: 'Profile', href: '/profile', icon: User, routeName: 'profile.edit' },
+];
+
+function isActive(routeName: string): boolean {
+    try {
+        return route().current(routeName);
+    } catch {
+        return false;
+    }
+}
 
 export default function Authenticated({
     header,
@@ -11,169 +40,118 @@ export default function Authenticated({
 }: PropsWithChildren<{ header?: ReactNode }>) {
     const user = usePage().props.auth.user;
 
-    const [showingNavigationDropdown, setShowingNavigationDropdown] =
-        useState(false);
+    const handleLogout = () => {
+        router.post(route('logout'));
+    };
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <nav className="border-b border-gray-100 bg-white">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between">
-                        <div className="flex">
-                            <div className="flex shrink-0 items-center">
-                                <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
+        <div className="relative min-h-screen overflow-hidden">
+            <div className="fixed inset-0 bg-mesh animate-mesh-shift -z-10" aria-hidden="true" />
+
+            {/* Sidebar — desktop */}
+            <aside
+                className="hidden md:flex fixed inset-y-0 left-0 w-64 flex-col p-4 z-30"
+                aria-label="Sidebar navigation"
+            >
+                <div className="glass-elevated rounded-3xl flex-1 flex flex-col p-4">
+                    <Link
+                        href="/dashboard"
+                        className="flex items-center gap-2 px-2 py-3 mb-2 group"
+                        aria-label="Home"
+                    >
+                        <div className="rounded-xl bg-accent-primary/10 p-2 ring-1 ring-accent-primary/30 group-hover:ring-accent-primary/60 transition-all">
+                            <Sparkles className="h-5 w-5 text-accent-neon" />
+                        </div>
+                        <span className="text-text-primary font-semibold tracking-tight">
+                            Auditor
+                        </span>
+                    </Link>
+
+                    <nav className="flex flex-col gap-1 flex-1">
+                        {navItems.map((item) => {
+                            const active = isActive(item.routeName);
+                            const Icon = item.icon;
+                            return (
+                                <Link
+                                    key={item.routeName}
+                                    href={item.href}
+                                    className={cn(
+                                        'flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm transition-all duration-200',
+                                        active
+                                            ? 'bg-accent-primary/15 text-text-primary ring-1 ring-accent-primary/30'
+                                            : 'text-text-secondary hover:text-text-primary hover:bg-white/5',
+                                    )}
+                                    aria-current={active ? 'page' : undefined}
+                                >
+                                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                                    <span>{item.label}</span>
                                 </Link>
-                            </div>
+                            );
+                        })}
+                    </nav>
 
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
-                                    Dashboard
-                                </NavLink>
-                            </div>
+                    <div className="mt-auto pt-4 border-t border-white/10">
+                        <div className="px-3 py-2 mb-2">
+                            <p className="text-sm font-medium text-text-primary truncate">
+                                {user.name}
+                            </p>
+                            <p className="text-xs text-text-secondary truncate">
+                                {user.email}
+                            </p>
                         </div>
-
-                        <div className="hidden sm:ms-6 sm:flex sm:items-center">
-                            <div className="relative ms-3">
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <span className="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
-                                            >
-                                                {user.name}
-
-                                                <svg
-                                                    className="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </Dropdown.Trigger>
-
-                                    <Dropdown.Content>
-                                        <Dropdown.Link
-                                            href={route('profile.edit')}
-                                        >
-                                            Profile
-                                        </Dropdown.Link>
-                                        <Dropdown.Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                        >
-                                            Log Out
-                                        </Dropdown.Link>
-                                    </Dropdown.Content>
-                                </Dropdown>
-                            </div>
-                        </div>
-
-                        <div className="-me-2 flex items-center sm:hidden">
-                            <button
-                                onClick={() =>
-                                    setShowingNavigationDropdown(
-                                        (previousState) => !previousState,
-                                    )
-                                }
-                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
-                            >
-                                <svg
-                                    className="h-6 w-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        className={
-                                            !showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        className={
-                                            showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm w-full text-text-secondary hover:text-state-danger hover:bg-state-danger/10 transition-all duration-200"
+                        >
+                            <LogOut className="h-5 w-5" aria-hidden="true" />
+                            <span>Log out</span>
+                        </button>
                     </div>
                 </div>
+            </aside>
 
-                <div
-                    className={
-                        (showingNavigationDropdown ? 'block' : 'hidden') +
-                        ' sm:hidden'
-                    }
-                >
-                    <div className="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            href={route('dashboard')}
-                            active={route().current('dashboard')}
-                        >
-                            Dashboard
-                        </ResponsiveNavLink>
-                    </div>
+            {/* Main content */}
+            <div className="md:pl-64 min-h-screen flex flex-col pb-20 md:pb-0">
+                {header && (
+                    <header className="px-4 md:px-8 py-6">
+                        <div className="mx-auto max-w-7xl">{header}</div>
+                    </header>
+                )}
+                <main className="flex-1 px-4 md:px-8 pb-8">
+                    <div className="mx-auto max-w-7xl">{children}</div>
+                </main>
+            </div>
 
-                    <div className="border-t border-gray-200 pb-1 pt-4">
-                        <div className="px-4">
-                            <div className="text-base font-medium text-gray-800">
-                                {user.name}
-                            </div>
-                            <div className="text-sm font-medium text-gray-500">
-                                {user.email}
-                            </div>
-                        </div>
-
-                        <div className="mt-3 space-y-1">
-                            <ResponsiveNavLink href={route('profile.edit')}>
-                                Profile
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                method="post"
-                                href={route('logout')}
-                                as="button"
+            {/* Bottom nav — mobile */}
+            <nav
+                className="md:hidden fixed bottom-0 inset-x-0 z-40 px-2 pb-2 pt-1"
+                aria-label="Bottom navigation"
+            >
+                <div className="glass-elevated rounded-3xl flex justify-around py-2">
+                    {navItems.map((item) => {
+                        const active = isActive(item.routeName);
+                        const Icon = item.icon;
+                        return (
+                            <Link
+                                key={item.routeName}
+                                href={item.href}
+                                className={cn(
+                                    'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-[10px] transition-all duration-200',
+                                    active
+                                        ? 'text-accent-neon'
+                                        : 'text-text-secondary hover:text-text-primary',
+                                )}
+                                aria-current={active ? 'page' : undefined}
                             >
-                                Log Out
-                            </ResponsiveNavLink>
-                        </div>
-                    </div>
+                                <Icon className="h-5 w-5" aria-hidden="true" />
+                                <span>{item.label}</span>
+                            </Link>
+                        );
+                    })}
                 </div>
             </nav>
 
-            {header && (
-                <header className="bg-white shadow">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                        {header}
-                    </div>
-                </header>
-            )}
-
-            <main>{children}</main>
+            <ToastContainer />
         </div>
     );
 }

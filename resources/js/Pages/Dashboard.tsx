@@ -3,7 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
 import { Card } from '@/Components/UI/Card';
 import { EmptyState } from '@/Components/UI/EmptyState';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 
 export default function Dashboard() {
     return (
@@ -46,7 +46,11 @@ export default function Dashboard() {
                 icon={Upload}
                 title="No transactions yet"
                 description="Upload your first bank CSV statement to start tracking subscriptions and expenses with AI."
-                action={<Button variant="primary">Upload CSV</Button>}
+                action={
+                    <Link href={route('imports.create')}>
+                        <Button variant="primary">Upload CSV</Button>
+                    </Link>
+                }
             />
         </AuthenticatedLayout>
     );

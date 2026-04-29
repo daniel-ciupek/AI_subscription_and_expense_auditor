@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+use App\Http\Controllers\ImportController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +25,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
+    Route::get('/imports/create', [ImportController::class, 'create'])->name('imports.create');
+    Route::post('/imports', [ImportController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('imports.store');
+    Route::delete('/imports/{import}', [ImportController::class, 'destroy'])->name('imports.destroy');
 });
 
 require __DIR__.'/auth.php';

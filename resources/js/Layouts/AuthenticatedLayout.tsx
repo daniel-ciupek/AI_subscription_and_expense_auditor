@@ -21,8 +21,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
-    { label: 'Imports', href: '/dashboard', icon: Upload, routeName: 'imports.index' },
-    { label: 'Subscriptions', href: '/dashboard', icon: Repeat, routeName: 'subscriptions.index' },
+    { label: 'Imports', href: '/imports', icon: Upload, routeName: 'imports.*' },
+    { label: 'Subscriptions', href: '/dashboard', icon: Repeat, routeName: 'subscriptions.*' },
     { label: 'Profile', href: '/profile', icon: User, routeName: 'profile.edit' },
 ];
 

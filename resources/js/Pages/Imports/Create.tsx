@@ -95,7 +95,7 @@ export default function ImportsCreate({ banks }: { banks: BankOption[] }) {
                         <input
                             ref={inputRef}
                             type="file"
-                            accept=".csv,text/csv,.txt"
+                            accept=".csv,.txt,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             className="sr-only"
                             onChange={onChange}
                         />
@@ -135,10 +135,10 @@ export default function ImportsCreate({ banks }: { banks: BankOption[] }) {
                                     />
                                 </div>
                                 <p className="text-text-primary font-medium">
-                                    Drop CSV here or click to choose
+                                    Drop file here or click to choose
                                 </p>
                                 <p className="text-xs text-text-secondary">
-                                    mBank, PKO BP, ING, Santander, BGŻ BNP Paribas — max 10 MB
+                                    CSV, XLS or XLSX — mBank, PKO BP, ING, Santander, BGŻ BNP Paribas — max 10 MB
                                 </p>
                             </div>
                         )}

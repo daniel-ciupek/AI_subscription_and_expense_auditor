@@ -17,7 +17,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite, redis
+          extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite, redis, gd, zip, bcmath
           coverage: none
 
       - uses: ramsey/composer-install@v3

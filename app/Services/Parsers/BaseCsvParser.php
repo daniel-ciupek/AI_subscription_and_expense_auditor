@@ -17,8 +17,6 @@ abstract class BaseCsvParser implements CsvParserInterface
     /** @var non-empty-string */
     protected string $sourceEncoding = 'UTF-8';
 
-    protected int $headerRowIndex = 0;
-
     protected int $dataStartRowIndex = 1;
 
     /**
@@ -48,51 +46,41 @@ abstract class BaseCsvParser implements CsvParserInterface
 
     public function parse(string $path): iterable
     {
-        $handle = fopen($path, 'rb');
-        if ($handle === false) {
-            throw new RuntimeException("Cannot open CSV file: {$path}");
-        }
+        $reader = new StatementReader(
+            delimiter: $this->delimiter,
+            sourceEncoding: $this->sourceEncoding,
+        );
 
-        try {
-            $rowIndex = 0;
-            while (($row = fgetcsv($handle, 0, $this->delimiter, '"', '\\')) !== false) {
-                if ($rowIndex < $this->dataStartRowIndex) {
-                    $rowIndex++;
-
-                    continue;
-                }
-
-                $row = $this->normalizeRow($row);
-                if ($this->isEmptyRow($row)) {
-                    $rowIndex++;
-
-                    continue;
-                }
-
-                yield $this->mapRow($row);
+        $rowIndex = 0;
+        foreach ($reader->rows($path) as $row) {
+            if ($rowIndex < $this->dataStartRowIndex) {
                 $rowIndex++;
+
+                continue;
             }
-        } finally {
-            fclose($handle);
+
+            if ($this->isEmptyRow($row)) {
+                $rowIndex++;
+
+                continue;
+            }
+
+            $parsed = $this->mapRow($row);
+            if ($parsed !== null) {
+                yield $parsed;
+            }
+
+            $rowIndex++;
         }
     }
 
     /**
+     * Map a normalized data row to a ParsedTransaction.
+     * Return null to skip the row (e.g. pending/rejected transactions).
+     *
      * @param  array<int, string>  $row
      */
-    abstract protected function mapRow(array $row): ParsedTransaction;
-
-    /**
-     * @param  array<int, string|null>  $row
-     * @return array<int, string>
-     */
-    protected function normalizeRow(array $row): array
-    {
-        return array_map(
-            fn (?string $cell): string => trim($this->toUtf8($cell ?? '')),
-            $row,
-        );
-    }
+    abstract protected function mapRow(array $row): ?ParsedTransaction;
 
     /**
      * @param  array<int, string>  $row
@@ -108,27 +96,12 @@ abstract class BaseCsvParser implements CsvParserInterface
         return true;
     }
 
-    protected function toUtf8(string $value): string
-    {
-        $value = ltrim($value, "\xEF\xBB\xBF");
-
-        // If the bytes are already valid UTF-8 we are done; this lets callers
-        // declare a "preferred" source encoding while still accepting UTF-8
-        // exports that are increasingly common in modern bank portals.
-        if (mb_check_encoding($value, 'UTF-8')) {
-            return $value;
-        }
-
-        $converted = mb_convert_encoding($value, 'UTF-8', $this->sourceEncoding);
-
-        return is_string($converted) ? $converted : $value;
-    }
-
     protected function parseAmount(string $value): string
     {
         $value = trim($value);
-        $value = str_replace(["\u{00A0}", ' '], '', $value);
-        // Normalize Polish decimal comma to dot.
+        // Strip every whitespace flavor (regular space, NBSP, thin space, etc.)
+        $value = preg_replace('/\s+/u', '', $value) ?? $value;
+        // Polish decimal comma → dot.
         $value = str_replace(',', '.', $value);
 
         if ($value === '' || ! is_numeric($value)) {

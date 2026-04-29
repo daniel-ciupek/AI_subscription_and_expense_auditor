@@ -29,10 +29,16 @@ class ImportCsvAction
     {
         $disk = Storage::disk('local');
         $directory = "imports/{$user->id}";
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'csv');
+        if (! in_array($extension, ['csv', 'txt', 'xls', 'xlsx'], true)) {
+            $extension = 'csv';
+        }
+
         $path = $file->storeAs($directory, sprintf(
-            '%s_%s.csv',
+            '%s_%s.%s',
             now()->format('YmdHis'),
             bin2hex(random_bytes(4)),
+            $extension,
         ), 'local');
 
         if ($path === false) {

@@ -24,7 +24,7 @@ class ImportCsvRequest extends FormRequest
         return [
             'file' => [
                 'required',
-                File::types(['csv', 'txt'])->max(10 * 1024),
+                File::types(['csv', 'txt', 'xls', 'xlsx'])->max(10 * 1024),
             ],
             'bank' => [
                 'nullable',

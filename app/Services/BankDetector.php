@@ -11,6 +11,7 @@ use App\Services\Parsers\IngCsvParser;
 use App\Services\Parsers\MBankCsvParser;
 use App\Services\Parsers\PkoBpCsvParser;
 use App\Services\Parsers\SantanderCsvParser;
+use App\Services\Parsers\StatementReader;
 use RuntimeException;
 
 class BankDetector
@@ -43,11 +44,15 @@ class BankDetector
     }
 
     /**
-     * Detect bank by reading the first non-empty row of the CSV file.
+     * Detect bank by reading the first non-empty row of a CSV/XLS/XLSX file.
      */
     public function detect(string $path): ?CsvParserInterface
     {
-        $headers = $this->readHeaderRow($path);
+        $reader = new StatementReader(
+            delimiter: $this->guessCsvDelimiter($path),
+        );
+
+        $headers = $reader->firstRow($path);
         if ($headers === null) {
             return null;
         }
@@ -62,54 +67,27 @@ class BankDetector
     }
 
     /**
-     * @return array<int, string>|null
+     * Sniff a likely CSV delimiter from the first chunk of the file. Ignored
+     * for spreadsheets — StatementReader uses PhpSpreadsheet there.
      */
-    private function readHeaderRow(string $path): ?array
+    private function guessCsvDelimiter(string $path): string
     {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (in_array($extension, ['xls', 'xlsx', 'ods'], true)) {
+            return ';';
+        }
+
         $handle = fopen($path, 'rb');
         if ($handle === false) {
-            return null;
+            return ',';
         }
 
-        try {
-            // Try common delimiters until we find one that splits into >1 column.
-            $sample = (string) fread($handle, 4096);
-            rewind($handle);
+        $sample = (string) fread($handle, 4096);
+        fclose($handle);
 
-            $delimiter = $this->guessDelimiter($sample);
-
-            while (($row = fgetcsv($handle, 0, $delimiter, '"', '\\')) !== false) {
-                $row = array_map(
-                    fn ($cell): string => trim($this->stripBom((string) ($cell ?? ''))),
-                    $row,
-                );
-
-                $hasContent = false;
-                foreach ($row as $cell) {
-                    if ($cell !== '') {
-                        $hasContent = true;
-                        break;
-                    }
-                }
-
-                if ($hasContent) {
-                    return $row;
-                }
-            }
-        } finally {
-            fclose($handle);
-        }
-
-        return null;
-    }
-
-    private function guessDelimiter(string $sample): string
-    {
-        $candidates = [';', ',', "\t"];
         $best = ',';
         $bestCount = -1;
-
-        foreach ($candidates as $candidate) {
+        foreach ([';', ',', "\t"] as $candidate) {
             $count = substr_count($sample, $candidate);
             if ($count > $bestCount) {
                 $bestCount = $count;
@@ -118,10 +96,5 @@ class BankDetector
         }
 
         return $best;
-    }
-
-    private function stripBom(string $value): string
-    {
-        return ltrim($value, "\xEF\xBB\xBF");
     }
 }

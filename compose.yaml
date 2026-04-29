@@ -25,6 +25,21 @@ services:
             - pgsql
             - redis
             - mailpit
+    queue:
+        image: 'sail-8.5/app'
+        command: 'php artisan queue:work --tries=3 --backoff=5 --timeout=120'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            - laravel.test
+            - pgsql
+            - redis
+        restart: unless-stopped
     pgsql:
         image: 'postgres:18-alpine'
         ports:

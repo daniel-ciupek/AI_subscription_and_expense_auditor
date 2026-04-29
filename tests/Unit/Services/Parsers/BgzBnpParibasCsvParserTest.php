@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\DTOs\ParsedTransaction;
 use App\Enums\Bank;
 use App\Services\Parsers\BgzBnpParibasCsvParser;
+use Carbon\CarbonImmutable;
 
 it('claims BGŻ BNP Paribas headers', function () {
     $parser = new BgzBnpParibasCsvParser;
@@ -61,4 +62,18 @@ it('strips minus-with-space and Polish thousand separators from amounts', functi
     expect($parser->publicParseAmount('- 50,17'))->toBe('-50.17');
     expect($parser->publicParseAmount("17\u{00A0}353,63"))->toBe('17353.63'); // NBSP
     expect($parser->publicParseAmount('1 234,56'))->toBe('1234.56');
+});
+
+it('parses dates from both ISO strings and Excel serial numbers', function () {
+    $parser = new class extends BgzBnpParibasCsvParser
+    {
+        public function publicParseDate(string $value): CarbonImmutable
+        {
+            return $this->parseDate($value, 'Y-m-d');
+        }
+    };
+
+    expect($parser->publicParseDate('2026-04-29')->toDateString())->toBe('2026-04-29');
+    // 46141 = 2026-04-29 in Excel serial (days since 1900-01-01).
+    expect($parser->publicParseDate('46141')->toDateString())->toBe('2026-04-29');
 });

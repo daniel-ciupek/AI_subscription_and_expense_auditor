@@ -7,6 +7,7 @@ namespace App\Services\Parsers;
 use App\Contracts\CsvParserInterface;
 use App\DTOs\ParsedTransaction;
 use Carbon\CarbonImmutable;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use RuntimeException;
 
 abstract class BaseCsvParser implements CsvParserInterface
@@ -113,7 +114,20 @@ abstract class BaseCsvParser implements CsvParserInterface
 
     protected function parseDate(string $value, string $format): CarbonImmutable
     {
-        $date = CarbonImmutable::createFromFormat($format, trim($value));
+        $trimmed = trim($value);
+
+        // Spreadsheet exports occasionally hand us Excel date serials (e.g. 46141)
+        // when the source cell is formatted as "General" instead of "Date".
+        // 25569 is 1970-01-01; threshold is generous enough to accept any year
+        // a transaction could plausibly carry, while rejecting bare amounts.
+        if (preg_match('/^\d+(\.\d+)?$/', $trimmed) === 1) {
+            $serial = (float) $trimmed;
+            if ($serial >= 25569 && $serial <= 80000) {
+                return CarbonImmutable::instance(ExcelDate::excelToDateTimeObject($serial))->startOfDay();
+            }
+        }
+
+        $date = CarbonImmutable::createFromFormat($format, $trimmed);
         if (! $date instanceof CarbonImmutable) {
             throw new RuntimeException("Invalid date '{$value}' for format '{$format}'");
         }

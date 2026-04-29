@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
-import react from '@vitejs/plugin-react';
+import react from '@vitejs/plugin-react-oxc'; // Zmieniony import na wersję OXC
 
 export default defineConfig({
     plugins: [

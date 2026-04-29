@@ -25,6 +25,8 @@ services:
             - pgsql
             - redis
             - mailpit
+        security_opt:
+            - 'no-new-privileges:true'
     queue:
         image: 'sail-8.5/app'
         command: 'php artisan queue:work --tries=3 --backoff=5 --timeout=120'
@@ -40,6 +42,8 @@ services:
             - pgsql
             - redis
         restart: unless-stopped
+        security_opt:
+            - 'no-new-privileges:true'
     pgsql:
         image: 'postgres:18-alpine'
         ports:
@@ -65,8 +69,10 @@ services:
                 - '${DB_USERNAME}'
             retries: 3
             timeout: 5s
+        security_opt:
+            - 'no-new-privileges:true'
     redis:
-        image: 'redis:alpine'
+        image: 'redis:8-alpine'
         ports:
             - '${FORWARD_REDIS_PORT:-6379}:6379'
         volumes:
@@ -80,13 +86,17 @@ services:
                 - ping
             retries: 3
             timeout: 5s
+        security_opt:
+            - 'no-new-privileges:true'
     mailpit:
-        image: 'axllent/mailpit:latest'
+        image: 'axllent/mailpit:v1.27'
         ports:
             - '${FORWARD_MAILPIT_PORT:-1025}:1025'
             - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
         networks:
             - sail
+        security_opt:
+            - 'no-new-privileges:true'
 networks:
     sail:
         driver: bridge

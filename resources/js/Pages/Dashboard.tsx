@@ -2,6 +2,10 @@ import { Upload, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
 import { Card } from '@/Components/UI/Card';
+import {
+    CategoryBreakdownChart,
+    type CategoryBreakdownEntry,
+} from '@/Components/Dashboard/CategoryBreakdownChart';
 import { EmptyState } from '@/Components/UI/EmptyState';
 import { Head, Link } from '@inertiajs/react';
 import { cn } from '@/lib/cn';
@@ -24,6 +28,7 @@ interface RecentTransaction {
 interface DashboardProps {
     stats: Stats;
     recentTransactions: RecentTransaction[];
+    categoryBreakdown: CategoryBreakdownEntry[];
 }
 
 const formatAmount = (amount: string, currency: string): string => {
@@ -44,8 +49,13 @@ const formatDate = (iso: string): string => {
     });
 };
 
-export default function Dashboard({ stats, recentTransactions }: DashboardProps) {
+export default function Dashboard({
+    stats,
+    recentTransactions,
+    categoryBreakdown,
+}: DashboardProps) {
     const hasTransactions = stats.transactions > 0;
+    const hasBreakdown = categoryBreakdown.length > 0;
 
     return (
         <AuthenticatedLayout
@@ -84,6 +94,21 @@ export default function Dashboard({ stats, recentTransactions }: DashboardProps)
                     </p>
                 </Card>
             </div>
+
+            {hasBreakdown && (
+                <Card className="mb-6">
+                    <div className="flex items-baseline justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-text-primary">
+                            Spending by category
+                        </h2>
+                        <span className="text-xs text-text-secondary font-mono">
+                            {categoryBreakdown.length} categor
+                            {categoryBreakdown.length === 1 ? 'y' : 'ies'}
+                        </span>
+                    </div>
+                    <CategoryBreakdownChart data={categoryBreakdown} />
+                </Card>
+            )}
 
             {hasTransactions ? (
                 <Card>

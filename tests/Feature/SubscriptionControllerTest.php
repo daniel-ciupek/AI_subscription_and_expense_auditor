@@ -101,6 +101,49 @@ it('lists subscriptions with their category and a monthly cost estimate', functi
         );
 });
 
+it('keeps the statement amount for monthly-window cycles (28-32 days)', function () {
+    $user = User::factory()->create();
+
+    Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'CARD MAINTENANCE FEE',
+        'amount' => '12.00',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 29, // would normalize to 12.41 with naive 30/cycle
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-04-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('subscriptions.index'))
+        ->assertInertia(
+            fn ($page) => $page->where('monthlyTotal', 12),
+        );
+});
+
+it('normalizes weekly cycles to a 30-day equivalent', function () {
+    $user = User::factory()->create();
+
+    Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'WEEKLY SERVICE',
+        'amount' => '10.00',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 7,
+        'last_charge_at' => '2026-04-23',
+        'next_expected_charge_at' => '2026-04-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('subscriptions.index'))
+        ->assertInertia(
+            fn ($page) => $page->where(
+                'monthlyTotal',
+                fn (float $total): bool => abs($total - (10 * 30 / 7)) < 0.01,
+            ),
+        );
+});
+
 it('exposes duplicate flags and excludes them from the monthly estimate', function () {
     $user = User::factory()->create();
 

@@ -61,12 +61,28 @@ class SubscriptionController extends Controller
         return Inertia::render('Subscriptions/Index', [
             'subscriptions' => $subscriptions,
             'monthlyTotal' => array_sum(array_map(
-                static fn (array $sub): float => $sub['amount'] * (30 / max($sub['billing_cycle_days'], 1)),
+                static fn (array $sub): float => $sub['amount'] * self::monthlyMultiplier($sub['billing_cycle_days']),
                 $canonical,
             )),
             'duplicateCount' => count($subscriptions) - count($canonical),
             'transactionsCount' => $user->transactions()->count(),
         ]);
+    }
+
+    /**
+     * Cycles already in the monthly window (28–32d) keep the statement amount
+     * as-is — a 29-day cycle on a 12.00 PLN charge looks like "12.41 PLN/month"
+     * with naive 30/cycle normalization, which doesn't match what the user sees
+     * on the invoice. Weekly/quarterly/yearly cycles still get normalized so
+     * the headline number stays comparable.
+     */
+    private static function monthlyMultiplier(int $cycleDays): float
+    {
+        if ($cycleDays >= 28 && $cycleDays <= 32) {
+            return 1.0;
+        }
+
+        return 30 / max($cycleDays, 1);
     }
 
     public function detect(Request $request): RedirectResponse

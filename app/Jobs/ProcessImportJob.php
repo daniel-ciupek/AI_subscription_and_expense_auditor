@@ -40,8 +40,9 @@ class ProcessImportJob implements ShouldQueue
             $parser = $detector->parserFor($import->bank);
             $absolutePath = Storage::disk('local')->path($this->storedPath);
 
-            $inserted = 0;
-            DB::transaction(function () use ($parser, $absolutePath, $import, &$inserted): void {
+            /** @var array<int, int> $insertedIds */
+            $insertedIds = [];
+            DB::transaction(function () use ($parser, $absolutePath, $import, &$insertedIds): void {
                 /** @var ParsedTransaction $parsed */
                 foreach ($parser->parse($absolutePath) as $parsed) {
                     $hash = Transaction::buildHash(
@@ -69,15 +70,19 @@ class ProcessImportJob implements ShouldQueue
                     );
 
                     if ($transaction->wasRecentlyCreated) {
-                        $inserted++;
+                        $insertedIds[] = $transaction->id;
                     }
                 }
             });
 
             $import->update([
                 'status' => ImportStatus::Done,
-                'transactions_count' => $inserted,
+                'transactions_count' => count($insertedIds),
             ]);
+
+            foreach (array_chunk($insertedIds, CategorizeTransactionsJob::MAX_BATCH) as $chunk) {
+                CategorizeTransactionsJob::dispatch($chunk);
+            }
         } catch (Throwable $e) {
             Log::error('Import processing failed', [
                 'import_id' => $import->id,

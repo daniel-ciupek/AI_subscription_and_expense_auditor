@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 use App\Enums\Bank;
 use App\Enums\ImportStatus;
+use App\Jobs\CategorizeTransactionsJob;
 use App\Jobs\ProcessImportJob;
 use App\Models\Import;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\BankDetector;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Storage::fake('local');
+    Bus::fake([CategorizeTransactionsJob::class]);
 
     $this->user = User::factory()->create();
 });
@@ -45,6 +48,17 @@ it('imports BGŻ transactions and marks the import done', function () {
     expect($this->user->transactions()->count())->toBe(3);
 });
 
+it('dispatches a categorize job per chunk for newly inserted transactions', function () {
+    [$import, $path] = makeImportWithFixture($this->user, Bank::BgzBnpParibas, 'bgz_bnp_paribas.csv');
+
+    (new ProcessImportJob($import->id, $path))->handle(app(BankDetector::class));
+
+    Bus::assertDispatched(CategorizeTransactionsJob::class, function (CategorizeTransactionsJob $job): bool {
+        return count($job->transactionIds) === 3;
+    });
+    Bus::assertDispatchedTimes(CategorizeTransactionsJob::class, 1);
+});
+
 it('is idempotent — re-running the same import inserts zero new rows', function () {
     [$import, $path] = makeImportWithFixture($this->user, Bank::BgzBnpParibas, 'bgz_bnp_paribas.csv');
 
@@ -57,6 +71,10 @@ it('is idempotent — re-running the same import inserts zero new rows', functio
     expect(Transaction::count())->toBe(3); // still only 3 rows total
     expect($import2->fresh()->transactions_count)->toBe(0);
     expect($import2->fresh()->status)->toBe(ImportStatus::Done);
+
+    // First run dispatched 1 categorize job; the idempotent re-run inserted
+    // nothing, so it must NOT have dispatched another categorize job.
+    Bus::assertDispatchedTimes(CategorizeTransactionsJob::class, 1);
 });
 
 it('marks import failed and records the reason on parser errors', function () {

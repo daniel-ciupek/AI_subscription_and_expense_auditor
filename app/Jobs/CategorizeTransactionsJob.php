@@ -9,6 +9,7 @@ use App\DTOs\TransactionForCategorization;
 use App\Models\AiCategorization;
 use App\Models\Category;
 use App\Models\Transaction;
+use App\Support\TransactionNormalizer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -141,19 +142,9 @@ class CategorizeTransactionsJob implements ShouldQueue
     public static function cacheKey(string $description, string $amount): string
     {
         $sign = (float) $amount < 0 ? '-' : '+';
-        $normalized = self::normalize($description);
+        $normalized = TransactionNormalizer::normalize($description);
 
         return 'ai_cat:'.hash('sha256', $normalized.'|'.$sign);
-    }
-
-    private static function normalize(string $description): string
-    {
-        $lower = mb_strtolower($description);
-        // Strip everything but unicode letters and whitespace, collapse runs.
-        $stripped = preg_replace('/[^\p{L}\s]/u', ' ', $lower) ?? $lower;
-        $collapsed = preg_replace('/\s+/u', ' ', $stripped) ?? $stripped;
-
-        return trim($collapsed);
     }
 
     /**

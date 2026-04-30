@@ -1,0 +1,156 @@
+import { Head, Link } from '@inertiajs/react';
+import { Repeat, Upload, CalendarClock } from 'lucide-react';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/UI/Button';
+import { Card } from '@/Components/UI/Card';
+import { EmptyState } from '@/Components/UI/EmptyState';
+
+interface SubscriptionRow {
+    id: number;
+    name: string;
+    amount: number;
+    currency: string;
+    billing_cycle_days: number;
+    last_charge_at: string;
+    next_expected_charge_at: string | null;
+    category: {
+        name: string;
+        slug: string;
+        color: string;
+    } | null;
+}
+
+interface SubscriptionsIndexProps {
+    subscriptions: SubscriptionRow[];
+    monthlyTotal: number;
+}
+
+const formatPln = (value: number): string =>
+    new Intl.NumberFormat('pl-PL', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+
+const formatDate = (iso: string): string =>
+    new Date(iso).toLocaleDateString('pl-PL', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
+
+const cycleLabel = (days: number): string => {
+    if (days >= 28 && days <= 32) return 'Monthly';
+    if (days >= 6 && days <= 8) return 'Weekly';
+    if (days >= 13 && days <= 15) return 'Biweekly';
+    if (days >= 88 && days <= 95) return 'Quarterly';
+    if (days >= 360 && days <= 370) return 'Yearly';
+    return `Every ${days} days`;
+};
+
+export default function SubscriptionsIndex({
+    subscriptions,
+    monthlyTotal,
+}: SubscriptionsIndexProps) {
+    return (
+        <AuthenticatedLayout
+            header={
+                <div>
+                    <h1 className="text-2xl font-semibold text-text-primary">
+                        Subscriptions
+                    </h1>
+                    <p className="text-sm text-text-secondary mt-1">
+                        Recurring charges detected from your imports.
+                    </p>
+                </div>
+            }
+        >
+            <Head title="Subscriptions" />
+
+            {subscriptions.length === 0 ? (
+                <EmptyState
+                    icon={Repeat}
+                    title="No subscriptions detected yet"
+                    description="Once you import a few months of bank statements, recurring charges with consistent amounts will appear here automatically."
+                    action={
+                        <Link href={route('imports.create')}>
+                            <Button variant="primary">
+                                <Upload className="h-4 w-4" aria-hidden="true" />
+                                Upload CSV
+                            </Button>
+                        </Link>
+                    }
+                />
+            ) : (
+                <>
+                    <Card className="mb-6">
+                        <div className="flex items-baseline justify-between">
+                            <p className="text-sm text-text-secondary">
+                                Estimated monthly cost
+                            </p>
+                            <p className="text-xs text-text-secondary font-mono">
+                                {subscriptions.length} subscription
+                                {subscriptions.length === 1 ? '' : 's'}
+                            </p>
+                        </div>
+                        <p className="mt-2 text-3xl font-mono tabular-nums text-text-primary">
+                            {formatPln(monthlyTotal)} PLN
+                        </p>
+                    </Card>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {subscriptions.map((sub) => (
+                            <Card key={sub.id} hoverable>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-base font-semibold text-text-primary truncate">
+                                            {sub.name}
+                                        </h3>
+                                        <p className="text-xs text-text-secondary mt-0.5 font-mono">
+                                            {cycleLabel(sub.billing_cycle_days)}
+                                        </p>
+                                    </div>
+                                    {sub.category && (
+                                        <span
+                                            className="shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1"
+                                            style={{
+                                                color: sub.category.color,
+                                                backgroundColor: `${sub.category.color}1A`,
+                                                borderColor: `${sub.category.color}55`,
+                                            }}
+                                        >
+                                            {sub.category.name}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <p className="mt-4 text-2xl font-mono tabular-nums text-text-primary">
+                                    {formatPln(sub.amount)}{' '}
+                                    <span className="text-sm text-text-secondary">
+                                        {sub.currency}
+                                    </span>
+                                </p>
+
+                                <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-xs text-text-secondary">
+                                    <CalendarClock
+                                        className="h-3.5 w-3.5 shrink-0"
+                                        aria-hidden="true"
+                                    />
+                                    <span>
+                                        Last charge {formatDate(sub.last_charge_at)}
+                                        {sub.next_expected_charge_at && (
+                                            <>
+                                                {' '}
+                                                · next expected{' '}
+                                                {formatDate(sub.next_expected_charge_at)}
+                                            </>
+                                        )}
+                                    </span>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                </>
+            )}
+        </AuthenticatedLayout>
+    );
+}

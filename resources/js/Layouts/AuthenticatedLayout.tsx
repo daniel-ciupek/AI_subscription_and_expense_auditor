@@ -22,7 +22,7 @@ interface NavItem {
 const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
     { label: 'Imports', href: '/imports', icon: Upload, routeName: 'imports.*' },
-    { label: 'Subscriptions', href: '/dashboard', icon: Repeat, routeName: 'subscriptions.*' },
+    { label: 'Subscriptions', href: '/subscriptions', icon: Repeat, routeName: 'subscriptions.*' },
     { label: 'Profile', href: '/profile', icon: User, routeName: 'profile.edit' },
 ];
 

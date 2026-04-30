@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SubscriptionController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -33,6 +34,8 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:10,1')
         ->name('imports.store');
     Route::delete('/imports/{import}', [ImportController::class, 'destroy'])->name('imports.destroy');
+
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
 });
 
 require __DIR__.'/auth.php';

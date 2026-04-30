@@ -17,14 +17,19 @@ class SubscriptionController extends Controller
             abort(403);
         }
 
-        $subscriptions = $user->subscriptions()
+        $rows = $user->subscriptions()
             ->with('category:id,name,slug,color,icon')
             ->orderByDesc('amount')
             ->get([
                 'id', 'category_id', 'name', 'amount', 'currency',
                 'billing_cycle_days', 'last_charge_at', 'next_expected_charge_at',
-            ])
-            ->map(fn ($sub): array => [
+                'is_duplicate_of_id',
+            ]);
+
+        $namesById = $rows->pluck('name', 'id');
+
+        $subscriptions = $rows
+            ->map(fn ($sub) => [
                 'id' => $sub->id,
                 'name' => $sub->name,
                 'amount' => (float) $sub->amount,
@@ -37,15 +42,27 @@ class SubscriptionController extends Controller
                     'slug' => $sub->category->slug,
                     'color' => $sub->category->color,
                 ],
+                'is_duplicate_of_id' => $sub->is_duplicate_of_id,
+                'duplicate_of_name' => $sub->is_duplicate_of_id !== null
+                    ? ($namesById[$sub->is_duplicate_of_id] ?? null)
+                    : null,
             ])
             ->all();
+
+        // Monthly cost only counts canonical rows so duplicates aren't
+        // double-billed in the headline number.
+        $canonical = array_filter(
+            $subscriptions,
+            static fn (array $sub): bool => $sub['is_duplicate_of_id'] === null,
+        );
 
         return Inertia::render('Subscriptions/Index', [
             'subscriptions' => $subscriptions,
             'monthlyTotal' => array_sum(array_map(
                 static fn (array $sub): float => $sub['amount'] * (30 / max($sub['billing_cycle_days'], 1)),
-                $subscriptions,
+                $canonical,
             )),
+            'duplicateCount' => count($subscriptions) - count($canonical),
         ]);
     }
 }

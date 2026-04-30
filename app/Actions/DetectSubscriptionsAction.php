@@ -41,6 +41,10 @@ class DetectSubscriptionsAction
 
     public const LOOKBACK_DAYS = 180;
 
+    public const DUPLICATE_AMOUNT_TOLERANCE = 0.15;
+
+    public const DUPLICATE_MIN_TOKEN_LENGTH = 4;
+
     /**
      * @return array<int, Subscription>
      */
@@ -78,7 +82,79 @@ class DetectSubscriptionsAction
             $persisted[] = $this->upsert($user, $analysis);
         }
 
+        $this->markDuplicates($user);
+
         return $persisted;
+    }
+
+    /**
+     * Pair up subscriptions that are likely the same recurring charge written
+     * differently on the bank statement (e.g. "NETFLIX.COM" vs "NETFLIX EU"
+     * billed at the same monthly cadence and similar amount). The newer row
+     * gets `is_duplicate_of_id` pointing back to the older one so the UI can
+     * highlight just one of them as the canonical entry.
+     */
+    private function markDuplicates(User $user): void
+    {
+        $subscriptions = $user->subscriptions()->orderBy('id')->get();
+        if ($subscriptions->count() < 2) {
+            return;
+        }
+
+        $groups = $subscriptions->groupBy('billing_cycle_days');
+
+        foreach ($groups as $cycleGroup) {
+            if ($cycleGroup->count() < 2) {
+                continue;
+            }
+
+            /** @var array<int, Subscription> $list */
+            $list = $cycleGroup->values()->all();
+            $count = count($list);
+
+            for ($i = 0; $i < $count; $i++) {
+                for ($j = $i + 1; $j < $count; $j++) {
+                    if ($this->areLikelyDuplicates($list[$i], $list[$j])) {
+                        $list[$j]->update(['is_duplicate_of_id' => $list[$i]->id]);
+                    }
+                }
+            }
+        }
+    }
+
+    private function areLikelyDuplicates(Subscription $original, Subscription $candidate): bool
+    {
+        $tokensA = $this->meaningfulTokens($original->name);
+        $tokensB = $this->meaningfulTokens($candidate->name);
+        if (array_intersect($tokensA, $tokensB) === []) {
+            return false;
+        }
+
+        $amountA = (float) $original->amount;
+        $amountB = (float) $candidate->amount;
+        if ($amountA <= 0.0 || $amountB <= 0.0) {
+            return false;
+        }
+
+        $spread = abs($amountA - $amountB) / max($amountA, $amountB);
+
+        return $spread <= self::DUPLICATE_AMOUNT_TOLERANCE;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function meaningfulTokens(string $name): array
+    {
+        $normalized = TransactionNormalizer::normalize($name);
+        if ($normalized === '') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            explode(' ', $normalized),
+            static fn (string $token): bool => mb_strlen($token) >= self::DUPLICATE_MIN_TOKEN_LENGTH,
+        ));
     }
 
     /**

@@ -142,6 +142,57 @@ it('ignores transactions older than the lookback window', function () {
     expect((new DetectSubscriptionsAction)->handle($this->user))->toBe([]);
 });
 
+it('flags a near-identical subscription as a duplicate of the older one', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([100, 70, 40] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX.COM 49.99 PLN', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+    foreach ([95, 65, 35] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX EU SUBSCRIPTION', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect(Subscription::count())->toBe(2);
+    $duplicates = Subscription::whereNotNull('is_duplicate_of_id')->get();
+    expect($duplicates)->toHaveCount(1);
+    expect($duplicates->first()->is_duplicate_of_id)
+        ->toBe(Subscription::orderBy('id')->first()->id);
+});
+
+it('does not flag two subscriptions with no shared meaningful tokens', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([90, 60, 30] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX SUBSCRIPTION', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+    foreach ([85, 55, 25] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'SPOTIFY PREMIUM', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect(Subscription::count())->toBe(2);
+    expect(Subscription::whereNotNull('is_duplicate_of_id')->count())->toBe(0);
+});
+
+it('does not flag duplicates when amounts diverge too much', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([90, 60, 30] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX STANDARD', '-39.99', $today->subDays($daysAgo)->toDateString());
+    }
+    foreach ([85, 55, 25] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX PREMIUM', '-67.00', $today->subDays($daysAgo)->toDateString());
+    }
+
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect(Subscription::count())->toBe(2);
+    expect(Subscription::whereNotNull('is_duplicate_of_id')->count())->toBe(0);
+});
+
 it('inherits the most common category from the underlying transactions', function () {
     $today = CarbonImmutable::now();
     $subs = Category::query()->where('slug', 'subscriptions')->firstOrFail();

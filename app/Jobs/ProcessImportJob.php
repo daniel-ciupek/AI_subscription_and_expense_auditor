@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -80,9 +81,7 @@ class ProcessImportJob implements ShouldQueue
                 'transactions_count' => count($insertedIds),
             ]);
 
-            foreach (array_chunk($insertedIds, CategorizeTransactionsJob::MAX_BATCH) as $chunk) {
-                CategorizeTransactionsJob::dispatch($chunk);
-            }
+            $this->dispatchPostImportPipeline($import->user_id, $insertedIds);
         } catch (Throwable $e) {
             Log::error('Import processing failed', [
                 'import_id' => $import->id,
@@ -96,5 +95,28 @@ class ProcessImportJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    /**
+     * @param  array<int, int>  $insertedIds
+     */
+    private function dispatchPostImportPipeline(int $userId, array $insertedIds): void
+    {
+        if ($insertedIds === []) {
+            return;
+        }
+
+        $jobs = array_map(
+            static fn (array $chunk): CategorizeTransactionsJob => new CategorizeTransactionsJob($chunk),
+            array_chunk($insertedIds, CategorizeTransactionsJob::MAX_BATCH),
+        );
+
+        Bus::batch($jobs)
+            ->name("import:{$this->importId}:categorize")
+            ->allowFailures()
+            ->then(static function () use ($userId): void {
+                DetectSubscriptionsJob::dispatch($userId);
+            })
+            ->dispatch();
     }
 }

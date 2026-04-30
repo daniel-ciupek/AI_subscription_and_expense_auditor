@@ -10,6 +10,7 @@ use App\Models\Import;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\BankDetector;
+use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +19,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Storage::fake('local');
-    Bus::fake([CategorizeTransactionsJob::class]);
+    Bus::fake();
 
     $this->user = User::factory()->create();
 });
@@ -48,15 +49,21 @@ it('imports BGŻ transactions and marks the import done', function () {
     expect($this->user->transactions()->count())->toBe(3);
 });
 
-it('dispatches a categorize job per chunk for newly inserted transactions', function () {
+it('batches a categorize job per chunk for newly inserted transactions', function () {
     [$import, $path] = makeImportWithFixture($this->user, Bank::BgzBnpParibas, 'bgz_bnp_paribas.csv');
 
     (new ProcessImportJob($import->id, $path))->handle(app(BankDetector::class));
 
-    Bus::assertDispatched(CategorizeTransactionsJob::class, function (CategorizeTransactionsJob $job): bool {
-        return count($job->transactionIds) === 3;
+    Bus::assertBatched(function (PendingBatch $batch): bool {
+        if ($batch->jobs->count() !== 1) {
+            return false;
+        }
+        $job = $batch->jobs->first();
+
+        return $job instanceof CategorizeTransactionsJob
+            && count($job->transactionIds) === 3;
     });
-    Bus::assertDispatchedTimes(CategorizeTransactionsJob::class, 1);
+    Bus::assertBatchCount(1);
 });
 
 it('is idempotent — re-running the same import inserts zero new rows', function () {
@@ -72,9 +79,9 @@ it('is idempotent — re-running the same import inserts zero new rows', functio
     expect($import2->fresh()->transactions_count)->toBe(0);
     expect($import2->fresh()->status)->toBe(ImportStatus::Done);
 
-    // First run dispatched 1 categorize job; the idempotent re-run inserted
-    // nothing, so it must NOT have dispatched another categorize job.
-    Bus::assertDispatchedTimes(CategorizeTransactionsJob::class, 1);
+    // First run dispatched 1 categorize batch; the idempotent re-run inserted
+    // nothing, so it must NOT have dispatched another batch.
+    Bus::assertBatchCount(1);
 });
 
 it('marks import failed and records the reason on parser errors', function () {

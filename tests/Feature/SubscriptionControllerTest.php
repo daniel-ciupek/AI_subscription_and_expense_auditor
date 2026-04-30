@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Jobs\DetectSubscriptionsJob;
 use App\Models\Category;
+use App\Models\Import;
 use App\Models\Subscription;
+use App\Models\Transaction;
 use App\Models\User;
 use Database\Seeders\CategorySeeder;
+use Illuminate\Support\Facades\Bus;
 
 beforeEach(function () {
     $this->seed(CategorySeeder::class);
@@ -25,7 +29,35 @@ it('renders the subscriptions index with an empty state for a fresh user', funct
             fn ($page) => $page->component('Subscriptions/Index')
                 ->where('subscriptions', [])
                 ->where('monthlyTotal', 0)
-                ->where('duplicateCount', 0),
+                ->where('duplicateCount', 0)
+                ->where('transactionsCount', 0),
+        );
+});
+
+it('exposes the user transaction count so the empty state can adapt', function () {
+    $user = User::factory()->create();
+    $import = Import::factory()->for($user)->create();
+
+    foreach (range(1, 5) as $i) {
+        Transaction::create([
+            'user_id' => $user->id,
+            'import_id' => $import->id,
+            'posted_at' => now()->subDays($i),
+            'amount' => '-10.00',
+            'currency' => 'PLN',
+            'description' => "tx {$i}",
+            'counterparty' => null,
+            'balance' => null,
+            'hash' => hash('sha256', "tx-{$i}"),
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get(route('subscriptions.index'))
+        ->assertInertia(
+            fn ($page) => $page->component('Subscriptions/Index')
+                ->where('subscriptions', [])
+                ->where('transactionsCount', 5),
         );
 });
 
@@ -104,6 +136,26 @@ it('exposes duplicate flags and excludes them from the monthly estimate', functi
                 ->where('subscriptions.1.is_duplicate_of_id', $original->id)
                 ->where('subscriptions.1.duplicate_of_name', 'NETFLIX.COM'),
         );
+});
+
+it('dispatches a detection job when the user clicks "Run detection now"', function () {
+    Bus::fake([DetectSubscriptionsJob::class]);
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('subscriptions.detect'))
+        ->assertRedirect(route('subscriptions.index'))
+        ->assertSessionHas('flash');
+
+    Bus::assertDispatched(
+        DetectSubscriptionsJob::class,
+        fn (DetectSubscriptionsJob $job): bool => $job->userId === $user->id,
+    );
+});
+
+it('blocks unauthenticated requests to the detect endpoint', function () {
+    $this->post(route('subscriptions.detect'))->assertRedirect(route('login'));
 });
 
 it('does not leak another user\'s subscriptions', function () {

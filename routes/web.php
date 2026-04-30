@@ -36,6 +36,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/imports/{import}', [ImportController::class, 'destroy'])->name('imports.destroy');
 
     Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
+    Route::post('/subscriptions/detect', [SubscriptionController::class, 'detect'])
+        ->middleware('throttle:3,1')
+        ->name('subscriptions.detect');
 });
 
 require __DIR__.'/auth.php';

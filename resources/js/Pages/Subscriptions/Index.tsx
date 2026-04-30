@@ -1,5 +1,5 @@
-import { Head, Link } from '@inertiajs/react';
-import { Repeat, Upload, CalendarClock, AlertTriangle } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { Repeat, Upload, CalendarClock, AlertTriangle, RefreshCw } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
 import { Card } from '@/Components/UI/Card';
@@ -27,6 +27,7 @@ interface SubscriptionsIndexProps {
     subscriptions: SubscriptionRow[];
     monthlyTotal: number;
     duplicateCount: number;
+    transactionsCount: number;
 }
 
 const formatPln = (value: number): string =>
@@ -55,36 +56,71 @@ export default function SubscriptionsIndex({
     subscriptions,
     monthlyTotal,
     duplicateCount,
+    transactionsCount,
 }: SubscriptionsIndexProps) {
+    const runDetection = () => {
+        router.post(route('subscriptions.detect'));
+    };
+
     return (
         <AuthenticatedLayout
             header={
-                <div>
-                    <h1 className="text-2xl font-semibold text-text-primary">
-                        Subscriptions
-                    </h1>
-                    <p className="text-sm text-text-secondary mt-1">
-                        Recurring charges detected from your imports.
-                    </p>
+                <div className="flex items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-semibold text-text-primary">
+                            Subscriptions
+                        </h1>
+                        <p className="text-sm text-text-secondary mt-1">
+                            Recurring charges detected from your imports.
+                        </p>
+                    </div>
+                    {subscriptions.length > 0 && (
+                        <Button variant="ghost" onClick={runDetection}>
+                            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                            Re-run detection
+                        </Button>
+                    )}
                 </div>
             }
         >
             <Head title="Subscriptions" />
 
             {subscriptions.length === 0 ? (
-                <EmptyState
-                    icon={Repeat}
-                    title="No subscriptions detected yet"
-                    description="Once you import a few months of bank statements, recurring charges with consistent amounts will appear here automatically."
-                    action={
-                        <Link href={route('imports.create')}>
-                            <Button variant="primary">
-                                <Upload className="h-4 w-4" aria-hidden="true" />
-                                Upload CSV
-                            </Button>
-                        </Link>
-                    }
-                />
+                transactionsCount === 0 ? (
+                    <EmptyState
+                        icon={Repeat}
+                        title="No subscriptions detected yet"
+                        description="Once you import a few months of bank statements, recurring charges with consistent amounts will appear here automatically."
+                        action={
+                            <Link href={route('imports.create')}>
+                                <Button variant="primary">
+                                    <Upload className="h-4 w-4" aria-hidden="true" />
+                                    Upload CSV
+                                </Button>
+                            </Link>
+                        }
+                    />
+                ) : (
+                    <EmptyState
+                        icon={Repeat}
+                        title="No recurring charges found in your transactions"
+                        description={`We've analyzed your ${transactionsCount} transactions but haven't found any subscriptions yet. Detection needs at least two charges from the same merchant 25–35 days apart with consistent amounts — usually that means ~2 months of history.`}
+                        action={
+                            <div className="flex flex-wrap gap-2 justify-center">
+                                <Button variant="primary" onClick={runDetection}>
+                                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                                    Run detection now
+                                </Button>
+                                <Link href={route('imports.create')}>
+                                    <Button variant="ghost">
+                                        <Upload className="h-4 w-4" aria-hidden="true" />
+                                        Upload more CSVs
+                                    </Button>
+                                </Link>
+                            </div>
+                        }
+                    />
+                )
             ) : (
                 <>
                     <Card className="mb-6">

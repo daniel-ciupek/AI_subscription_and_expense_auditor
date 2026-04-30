@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Jobs\DetectSubscriptionsJob;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -63,6 +65,24 @@ class SubscriptionController extends Controller
                 $canonical,
             )),
             'duplicateCount' => count($subscriptions) - count($canonical),
+            'transactionsCount' => $user->transactions()->count(),
         ]);
+    }
+
+    public function detect(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        if ($user === null) {
+            abort(403);
+        }
+
+        DetectSubscriptionsJob::dispatch($user->id);
+
+        return redirect()
+            ->route('subscriptions.index')
+            ->with('flash', [
+                'type' => 'success',
+                'message' => 'Subscription detection started. Refresh in a moment to see results.',
+            ]);
     }
 }

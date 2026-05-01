@@ -224,6 +224,92 @@ it('exposes top subscriptions sorted by monthly cost, hiding duplicates', functi
         );
 });
 
+it('emits a duplicate-subscriptions alert when canonical+duplicate pairs exist', function () {
+    $user = User::factory()->create();
+
+    $original = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'NETFLIX',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+    Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'NETFLIX EU',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-15',
+        'next_expected_charge_at' => '2026-05-15',
+        'is_duplicate_of_id' => $original->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(
+            fn ($page) => $page->component('Dashboard')
+                ->has('aiAlerts', 1)
+                ->where('aiAlerts.0.type', 'warning')
+                ->where('aiAlerts.0.title', '1 possible duplicate subscription'),
+        );
+});
+
+it('emits a spending-spike alert when last 30d exceeds previous 30d by 25%+', function () {
+    $user = User::factory()->create();
+    $import = $user->imports()->create([
+        'bank' => Bank::BgzBnpParibas,
+        'original_filename' => 'sample.xlsx',
+        'status' => ImportStatus::Done,
+    ]);
+
+    $today = CarbonImmutable::now();
+
+    // Current 30d window: 1000 PLN.
+    $user->transactions()->create([
+        'import_id' => $import->id,
+        'posted_at' => $today->subDays(10)->toDateString(),
+        'amount' => '-1000.00',
+        'currency' => 'PLN',
+        'description' => 'big spend',
+        'counterparty' => null,
+        'balance' => null,
+        'hash' => hash('sha256', 'big-1'),
+    ]);
+    // Previous 30d window: 500 PLN → 100% increase, well above 25 % threshold.
+    $user->transactions()->create([
+        'import_id' => $import->id,
+        'posted_at' => $today->subDays(45)->toDateString(),
+        'amount' => '-500.00',
+        'currency' => 'PLN',
+        'description' => 'old spend',
+        'counterparty' => null,
+        'balance' => null,
+        'hash' => hash('sha256', 'old-1'),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(
+            fn ($page) => $page->component('Dashboard')
+                ->has('aiAlerts', 1)
+                ->where('aiAlerts.0.type', 'info')
+                ->where('aiAlerts.0.title', 'Spending up 100% vs the previous month'),
+        );
+});
+
+it('emits no alerts when nothing is anomalous', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(
+            fn ($page) => $page->component('Dashboard')->where('aiAlerts', []),
+        );
+});
+
 it('caps top subscriptions list at 5 entries', function () {
     $user = User::factory()->create();
 

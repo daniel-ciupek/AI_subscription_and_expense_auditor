@@ -51,7 +51,73 @@ class DashboardController extends Controller
             'categoryBreakdown' => $this->buildCategoryBreakdown($user->id),
             'spendingOverTime' => $this->buildSpendingOverTime($user->id),
             'topSubscriptions' => $this->buildTopSubscriptions($user),
+            'aiAlerts' => $this->buildAiAlerts($user),
         ]);
+    }
+
+    /**
+     * Anomaly-style alerts surfaced at the top of the dashboard. Heuristic
+     * for now (rule-based, no model) — duplicate subscriptions, spending
+     * spikes vs. the previous 30-day window. Etap 7+ may layer in real
+     * AI-generated insights, but the prop name is generic so the UI doesn't
+     * have to change when the source does.
+     *
+     * @return array<int, array{
+     *     type: 'warning'|'info',
+     *     title: string,
+     *     message: string,
+     *     action_label: string|null,
+     *     action_url: string|null,
+     * }>
+     */
+    private function buildAiAlerts(User $user): array
+    {
+        $alerts = [];
+
+        $duplicateCount = $user->subscriptions()->whereNotNull('is_duplicate_of_id')->count();
+        if ($duplicateCount > 0) {
+            $alerts[] = [
+                'type' => 'warning',
+                'title' => sprintf(
+                    '%d possible duplicate subscription%s',
+                    $duplicateCount,
+                    $duplicateCount === 1 ? '' : 's',
+                ),
+                'message' => 'Two subscriptions look like the same service billed under different names — you may be paying twice.',
+                'action_label' => 'Review subscriptions',
+                'action_url' => route('subscriptions.index'),
+            ];
+        }
+
+        $now = CarbonImmutable::now();
+        $current = abs((float) $user->transactions()
+            ->where('amount', '<', 0)
+            ->where('posted_at', '>=', $now->subDays(30)->toDateString())
+            ->sum('amount'));
+        $previous = abs((float) $user->transactions()
+            ->where('amount', '<', 0)
+            ->whereBetween('posted_at', [
+                $now->subDays(60)->toDateString(),
+                $now->subDays(31)->toDateString(),
+            ])
+            ->sum('amount'));
+
+        if ($previous > 0 && $current > $previous * 1.25) {
+            $pct = (int) round(($current - $previous) / $previous * 100);
+            $alerts[] = [
+                'type' => 'info',
+                'title' => sprintf('Spending up %d%% vs the previous month', $pct),
+                'message' => sprintf(
+                    'Last 30 days: %.2f PLN. Previous 30 days: %.2f PLN.',
+                    $current,
+                    $previous,
+                ),
+                'action_label' => null,
+                'action_url' => null,
+            ];
+        }
+
+        return $alerts;
     }
 
     /**

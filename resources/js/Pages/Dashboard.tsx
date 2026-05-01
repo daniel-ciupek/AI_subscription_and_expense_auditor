@@ -14,6 +14,10 @@ import {
     TopSubscriptionsWidget,
     type TopSubscriptionEntry,
 } from '@/Components/Dashboard/TopSubscriptionsWidget';
+import {
+    AiAlertWidget,
+    type AiAlert,
+} from '@/Components/Dashboard/AiAlertWidget';
 import { EmptyState } from '@/Components/UI/EmptyState';
 import { Head, Link } from '@inertiajs/react';
 import { cn } from '@/lib/cn';
@@ -39,6 +43,7 @@ interface DashboardProps {
     categoryBreakdown: CategoryBreakdownEntry[];
     spendingOverTime: SpendingPoint[];
     topSubscriptions: TopSubscriptionEntry[];
+    aiAlerts: AiAlert[];
 }
 
 const formatAmount = (amount: string, currency: string): string => {
@@ -65,11 +70,13 @@ export default function Dashboard({
     categoryBreakdown,
     spendingOverTime,
     topSubscriptions,
+    aiAlerts,
 }: DashboardProps) {
     const hasTransactions = stats.transactions > 0;
     const hasBreakdown = categoryBreakdown.length > 0;
     const hasSpendingTrend = spendingOverTime.some((point) => point.total > 0);
     const hasTopSubscriptions = topSubscriptions.length > 0;
+    const hasAlerts = aiAlerts.length > 0;
 
     return (
         <AuthenticatedLayout
@@ -85,6 +92,12 @@ export default function Dashboard({
             }
         >
             <Head title="Dashboard" />
+
+            {hasAlerts && (
+                <div className="mb-6">
+                    <AiAlertWidget alerts={aiAlerts} />
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                 <Card>

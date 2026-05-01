@@ -10,6 +10,10 @@ import {
     SpendingOverTimeChart,
     type SpendingPoint,
 } from '@/Components/Dashboard/SpendingOverTimeChart';
+import {
+    TopSubscriptionsWidget,
+    type TopSubscriptionEntry,
+} from '@/Components/Dashboard/TopSubscriptionsWidget';
 import { EmptyState } from '@/Components/UI/EmptyState';
 import { Head, Link } from '@inertiajs/react';
 import { cn } from '@/lib/cn';
@@ -34,6 +38,7 @@ interface DashboardProps {
     recentTransactions: RecentTransaction[];
     categoryBreakdown: CategoryBreakdownEntry[];
     spendingOverTime: SpendingPoint[];
+    topSubscriptions: TopSubscriptionEntry[];
 }
 
 const formatAmount = (amount: string, currency: string): string => {
@@ -59,10 +64,12 @@ export default function Dashboard({
     recentTransactions,
     categoryBreakdown,
     spendingOverTime,
+    topSubscriptions,
 }: DashboardProps) {
     const hasTransactions = stats.transactions > 0;
     const hasBreakdown = categoryBreakdown.length > 0;
     const hasSpendingTrend = spendingOverTime.some((point) => point.total > 0);
+    const hasTopSubscriptions = topSubscriptions.length > 0;
 
     return (
         <AuthenticatedLayout
@@ -113,19 +120,46 @@ export default function Dashboard({
                 </Card>
             )}
 
-            {hasBreakdown && (
-                <Card className="mb-6">
-                    <div className="flex items-baseline justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-text-primary">
-                            Spending by category
-                        </h2>
-                        <span className="text-xs text-text-secondary font-mono">
-                            {categoryBreakdown.length} categor
-                            {categoryBreakdown.length === 1 ? 'y' : 'ies'}
-                        </span>
-                    </div>
-                    <CategoryBreakdownChart data={categoryBreakdown} />
-                </Card>
+            {(hasBreakdown || hasTopSubscriptions) && (
+                <div
+                    className={cn(
+                        'grid gap-4 mb-6',
+                        hasBreakdown && hasTopSubscriptions
+                            ? 'grid-cols-1 lg:grid-cols-3'
+                            : 'grid-cols-1',
+                    )}
+                >
+                    {hasBreakdown && (
+                        <Card className={hasTopSubscriptions ? 'lg:col-span-2' : ''}>
+                            <div className="flex items-baseline justify-between mb-4">
+                                <h2 className="text-lg font-semibold text-text-primary">
+                                    Spending by category
+                                </h2>
+                                <span className="text-xs text-text-secondary font-mono">
+                                    {categoryBreakdown.length} categor
+                                    {categoryBreakdown.length === 1 ? 'y' : 'ies'}
+                                </span>
+                            </div>
+                            <CategoryBreakdownChart data={categoryBreakdown} />
+                        </Card>
+                    )}
+                    {hasTopSubscriptions && (
+                        <Card>
+                            <div className="flex items-baseline justify-between mb-4">
+                                <h2 className="text-lg font-semibold text-text-primary">
+                                    Top subscriptions
+                                </h2>
+                                <Link
+                                    href={route('subscriptions.index')}
+                                    className="text-xs text-accent-neon hover:text-accent-neon/80 transition-colors"
+                                >
+                                    View all
+                                </Link>
+                            </div>
+                            <TopSubscriptionsWidget items={topSubscriptions} />
+                        </Card>
+                    )}
+                </div>
             )}
 
             {hasTransactions ? (

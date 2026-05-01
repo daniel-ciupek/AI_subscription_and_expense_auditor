@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\Bank;
 use App\Enums\ImportStatus;
 use App\Models\Category;
+use App\Models\Subscription;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\CategorySeeder;
@@ -169,6 +170,82 @@ it('aggregates expenses by category for the breakdown chart', function () {
                 ->where('categoryBreakdown.0.total', 80)
                 ->where('categoryBreakdown.1.slug', 'subscriptions')
                 ->where('categoryBreakdown.1.total', 49.99),
+        );
+});
+
+it('exposes top subscriptions sorted by monthly cost, hiding duplicates', function () {
+    $this->seed(CategorySeeder::class);
+
+    $user = User::factory()->create();
+    $subs = Category::query()->where('slug', 'subscriptions')->firstOrFail();
+
+    $netflix = Subscription::create([
+        'user_id' => $user->id,
+        'category_id' => $subs->id,
+        'name' => 'NETFLIX',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+    Subscription::create([
+        'user_id' => $user->id,
+        'category_id' => $subs->id,
+        'name' => 'SPOTIFY',
+        'amount' => '23.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-15',
+        'next_expected_charge_at' => '2026-05-15',
+    ]);
+    // Duplicate of Netflix — must NOT appear in the top list.
+    Subscription::create([
+        'user_id' => $user->id,
+        'category_id' => $subs->id,
+        'name' => 'NETFLIX EU',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-20',
+        'next_expected_charge_at' => '2026-05-20',
+        'is_duplicate_of_id' => $netflix->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(
+            fn ($page) => $page->component('Dashboard')
+                ->has('topSubscriptions', 2)
+                ->where('topSubscriptions.0.name', 'NETFLIX')
+                ->where('topSubscriptions.0.monthly_cost', 49.99)
+                ->where('topSubscriptions.1.name', 'SPOTIFY')
+                ->where('topSubscriptions.1.monthly_cost', 23.99),
+        );
+});
+
+it('caps top subscriptions list at 5 entries', function () {
+    $user = User::factory()->create();
+
+    foreach (range(1, 8) as $i) {
+        Subscription::create([
+            'user_id' => $user->id,
+            'name' => "SERVICE {$i}",
+            'amount' => (string) (10 + $i),
+            'currency' => 'PLN',
+            'billing_cycle_days' => 30,
+            'last_charge_at' => '2026-04-01',
+            'next_expected_charge_at' => '2026-05-01',
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(
+            fn ($page) => $page->component('Dashboard')
+                ->has('topSubscriptions', 5)
+                // Sorted desc → highest amount first.
+                ->where('topSubscriptions.0.name', 'SERVICE 8'),
         );
 });
 

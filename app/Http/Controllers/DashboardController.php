@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\User;
+use App\Support\SubscriptionMonthlyCost;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +50,49 @@ class DashboardController extends Controller
             'recentTransactions' => $recentTransactions,
             'categoryBreakdown' => $this->buildCategoryBreakdown($user->id),
             'spendingOverTime' => $this->buildSpendingOverTime($user->id),
+            'topSubscriptions' => $this->buildTopSubscriptions($user),
         ]);
+    }
+
+    /**
+     * Top 5 canonical subscriptions sorted by monthly cost (computed via
+     * SubscriptionMonthlyCost so a weekly subscription outranks a small
+     * monthly one when comparable).
+     *
+     * @return array<int, array{
+     *     id: int,
+     *     name: string,
+     *     monthly_cost: float,
+     *     currency: string,
+     *     billing_cycle_days: int,
+     *     category: array{name: string, slug: string, color: string}|null,
+     * }>
+     */
+    private function buildTopSubscriptions(User $user): array
+    {
+        return $user->subscriptions()
+            ->whereNull('is_duplicate_of_id')
+            ->with('category:id,name,slug,color')
+            ->get(['id', 'category_id', 'name', 'amount', 'currency', 'billing_cycle_days', 'is_duplicate_of_id'])
+            ->map(fn ($sub): array => [
+                'id' => $sub->id,
+                'name' => $sub->name,
+                'monthly_cost' => SubscriptionMonthlyCost::forCycle(
+                    (float) $sub->amount,
+                    $sub->billing_cycle_days,
+                ),
+                'currency' => $sub->currency,
+                'billing_cycle_days' => $sub->billing_cycle_days,
+                'category' => $sub->category === null ? null : [
+                    'name' => $sub->category->name,
+                    'slug' => $sub->category->slug,
+                    'color' => $sub->category->color,
+                ],
+            ])
+            ->sortByDesc('monthly_cost')
+            ->take(5)
+            ->values()
+            ->all();
     }
 
     /**

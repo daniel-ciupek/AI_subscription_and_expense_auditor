@@ -1,58 +1,213 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# AI-Driven Subscription & Expense Auditor
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A self-hosted personal-finance app that ingests Polish bank CSV/XLS statements,
+auto-categorizes transactions with an LLM, and surfaces recurring subscriptions
+(including likely duplicates you may be paying twice for).
 
-## About Laravel
+Built as a portfolio project — the focus is on clean architecture, testability,
+and shipping a fully working flow end-to-end.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+> _Screenshots placeholder — drop final renders in `docs/img/` and link them here:_
+> - `docs/img/dashboard.png` — dashboard with insights, area chart, donut, top subs
+> - `docs/img/subscriptions.png` — subscription list with duplicate flagging
+> - `docs/img/import.gif` — drag-and-drop CSV → categorization → dashboard
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Features
 
-## Learning Laravel
+- **Multi-bank CSV/XLS import** — parsers for **mBank, PKO BP, ING, Santander, BGŻ BNP Paribas**.
+  Bank auto-detected from the file headers; manual bank dropdown as fallback.
+- **Idempotent imports** — re-uploading the same statement inserts zero duplicate rows
+  thanks to a deterministic per-row hash (`sha256(user_id|posted_at|amount|description|balance)`).
+- **AI categorization with cost controls** — Groq (Llama 3.3 70B) via OpenAI-compatible
+  HTTP, batched 20 transactions per prompt, JSON-schema validated to block hallucinated
+  slugs. Redis cache keyed on a normalized merchant fingerprint with prompt-version
+  invalidation, 30-day TTL.
+- **Rule-based subscription detection** — groups expenses by normalized merchant name,
+  promotes a group to a `Subscription` when it shows ≥2 charges 25–35 days apart
+  with consistent amounts (±10%).
+- **Duplicate-subscription detection** — flags subscriptions that share a meaningful
+  token, billing cycle, and amount within ±15% (e.g. `NETFLIX.COM` vs `NETFLIX EU`)
+  so the headline monthly total isn't double-counted.
+- **Dashboard analytics** — 90-day spending area chart, category-breakdown donut,
+  top-5 subscriptions widget, AI insights alert (duplicates + spending spikes).
+- **Async pipeline** — every CSV is parsed in a queue job, then a `Bus::batch` of
+  categorize jobs, then `DetectSubscriptionsJob` runs once the batch finishes.
+- **PII at rest is encrypted** — `transactions.description` and `counterparty` use
+  Laravel's `encrypted` cast (AES-256 via `APP_KEY`).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Stack
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- **Backend:** Laravel 13, PHP 8.5, PostgreSQL 18, Redis 8
+- **Frontend:** Inertia.js + React 18 + TypeScript, Tailwind CSS, Recharts, Framer Motion, Lucide
+- **AI:** Groq API (OpenAI-compatible chat completions, `llama-3.3-70b-versatile`)
+  with a swappable `FakeAiCategorizer` for offline dev/CI
+- **Infra:** Laravel Sail (php-fpm 8.5 / pgsql / redis / mailpit / queue worker), Docker Compose
+- **Quality gates:** Pest (126 tests), Larastan level 8, Pint, ESLint, TypeScript strict mode
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Quickstart
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Requirements: Docker, Docker Compose. No need for a local PHP/Node toolchain to run.
 
 ```bash
-composer require laravel/boost --dev
+git clone https://github.com/daniel-ciupek/AI_subscription_and_expense_auditor.git
+cd AI_subscription_and_expense_auditor
+cp .env.example .env
 
-php artisan boost:install
+# Install PHP deps (one-off, uses a tiny throwaway container if you don't have PHP locally)
+docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html \
+    composer:latest composer install --ignore-platform-reqs --no-scripts
+
+# Bring the stack up
+./vendor/bin/sail up -d
+
+# Generate APP_KEY, run migrations, seed demo data
+./vendor/bin/sail artisan key:generate
+./vendor/bin/sail artisan migrate
+./vendor/bin/sail artisan db:seed --class=DemoSeeder
+
+# Frontend dev (HMR)
+./vendor/bin/sail npm install
+./vendor/bin/sail npm run dev
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Open <http://localhost> and log in with:
 
-## Contributing
+- **Email:** `demo@example.com`
+- **Password:** `demo1234`
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The demo account is pre-loaded with ~140 realistic transactions across 120 days,
+6 detected subscriptions (one is intentionally a near-duplicate to demonstrate
+the alerting path), categorized using the deterministic `FakeAiCategorizer`.
 
-## Code of Conduct
+## Switching to real AI categorization
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+By default the app runs `AI_DRIVER=fake` so it works without paid credentials.
+To use Groq's Llama 3.3 70B:
 
-## Security Vulnerabilities
+1. Grab a key from <https://console.groq.com>.
+2. Set in `.env`:
+   ```env
+   AI_DRIVER=groq
+   GROQ_API_KEY=gsk_...
+   ```
+3. Restart the queue worker so the binding picks up: `./vendor/bin/sail restart queue`.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Subsequent imports will use Groq; previously-cached categorizations stay valid
+since the cache key includes the prompt version.
+
+## Project structure
+
+```
+app/
+├── Actions/                 — single-responsibility business actions
+│   ├── ImportCsvAction.php
+│   └── DetectSubscriptionsAction.php   # rule-based + duplicate flagging
+├── Contracts/               — interfaces enabling Strategy pattern
+│   ├── AiCategorizerInterface.php
+│   └── CsvParserInterface.php
+├── Http/Controllers/        — thin: validate, authorize, delegate, render
+├── Jobs/                    — async pipeline
+│   ├── ProcessImportJob.php
+│   ├── CategorizeTransactionsJob.php   # batched + Redis-cached
+│   └── DetectSubscriptionsJob.php      # runs after categorize batch
+├── Services/
+│   ├── AiCategorizers/      — FakeAiCategorizer, GroqAiCategorizer
+│   ├── Parsers/             — 5 bank parsers + StatementReader (CSV/XLS/ODS)
+│   └── BankDetector.php     # auto-detect from headers
+└── Support/
+    ├── TransactionNormalizer.php       # merchant fingerprinting
+    └── SubscriptionMonthlyCost.php
+
+resources/js/
+├── Components/Dashboard/    — Recharts widgets (donut, area, top subs, alerts)
+├── Pages/                   — Inertia pages
+└── Layouts/
+
+database/
+├── migrations/              — schema (users, imports, transactions, categories, subscriptions, ai_categorizations)
+└── seeders/
+    ├── CategorySeeder.php
+    └── DemoSeeder.php       # idempotent demo dataset
+```
+
+## Architecture highlights
+
+### Strategy pattern × 2
+
+- **`AiCategorizerInterface`** has two implementations: `FakeAiCategorizer`
+  (deterministic keyword matching, used in tests + `AI_DRIVER=fake`) and
+  `GroqAiCategorizer` (HTTP Groq client, retries with exponential backoff,
+  schema-validated JSON, falls back to `other` rather than letting hallucinated
+  slugs reach the database).
+- **`CsvParserInterface`** has one implementation per supported bank.
+  `BankDetector` matches the file's header row against each parser's
+  signature; on a tie/miss the import form's bank dropdown is the fallback.
+
+### Async pipeline
+
+```
+ProcessImportJob (parse + persist) ─┐
+                                    │
+  Bus::batch([                      │   each chunk = up to 20 transaction IDs
+    CategorizeTransactionsJob,      ◄── per-tx Redis cache (sha256 of normalized
+    CategorizeTransactionsJob,      │   description + amount sign), 30-day TTL,
+    ...                             │   invalidated automatically on prompt
+  ])->then(DetectSubscriptionsJob)  │   version bump
+```
+
+### Idempotency at every boundary
+
+- **Imports:** `firstOrCreate` keyed on `(user_id, hash)` — re-uploading the
+  same statement inserts zero new rows. The post-import pipeline only
+  dispatches if at least one row was actually inserted.
+- **Detection:** `updateOrCreate` keyed on `(user_id, name, billing_cycle_days)`.
+  Re-running the detector never duplicates a subscription.
+- **Demo seeder:** wipes the demo user's data first so re-running is safe.
+
+### Cost control on AI calls
+
+- **Cache** — normalize description (lowercase, strip digits/punctuation,
+  collapse whitespace), hash it with the amount sign. Recurring merchants
+  hit cache after the first occurrence.
+- **Batching** — 20 transactions per prompt cuts cost ~20×.
+- **Versioning** — `ai_prompt_version` is stored on the cached value AND on
+  the audit row. Bumping the prompt invalidates stale cache entries without
+  flushing Redis.
+- **Schema validation** — Laravel `Validator` with an `in:` slug allow-list
+  on the LLM response. Schema violation → fall back to `other`, never let
+  invented categories reach the dashboard.
+
+## Testing
+
+```bash
+./vendor/bin/pest                  # 126 feature + unit tests
+./vendor/bin/phpstan analyse       # Larastan level 8
+./vendor/bin/pint --test           # Style check
+npm run typecheck                  # TypeScript strict
+```
+
+Pest runs against in-memory SQLite locally (~5s) and PostgreSQL inside Sail
+for parity with production.
+
+## Banks supported
+
+| Bank             | Header signature snippet                            | Real-data tested |
+|------------------|-----------------------------------------------------|------------------|
+| mBank            | `#data operacji`                                    | Synthetic fixtures |
+| PKO BP           | `typ transakcji + opis transakcji`                  | Synthetic fixtures |
+| ING              | `dane kontrahenta`                                  | Synthetic fixtures |
+| Santander        | `opis nadawcy/odbiorcy`                             | Synthetic fixtures |
+| BGŻ BNP Paribas  | `data zaksięgowania + numer rachunku kontrahenta`   | ✅ Author's account |
+
+Adding a sixth bank = one `CsvParserInterface` implementation + a header
+signature + a fixture-driven test. No other code changes.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+MIT — see `LICENSE`.
+
+## Author
+
+Built by [Daniel Ciupek](https://github.com/daniel-ciupek).

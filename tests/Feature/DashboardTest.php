@@ -6,6 +6,7 @@ use App\Enums\Bank;
 use App\Enums\ImportStatus;
 use App\Models\Category;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Database\Seeders\CategorySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -22,7 +23,72 @@ it('renders the dashboard with zero stats and empty state for a fresh user', fun
                 ->where('stats.transactions', 0)
                 ->where('stats.subscriptions', 0)
                 ->where('recentTransactions', [])
-                ->where('categoryBreakdown', []),
+                ->where('categoryBreakdown', [])
+                // 90-day daily series, all zeros for a fresh user.
+                ->has('spendingOverTime', 90),
+        );
+});
+
+it('builds a 90-day daily spending series with zero-filled gaps', function () {
+    $user = User::factory()->create();
+    $import = $user->imports()->create([
+        'bank' => Bank::BgzBnpParibas,
+        'original_filename' => 'sample.xlsx',
+        'status' => ImportStatus::Done,
+    ]);
+
+    $today = CarbonImmutable::now()->startOfDay();
+
+    // Two expenses on the same day → should be summed in that bucket.
+    foreach (['-50.00', '-30.00'] as $i => $amount) {
+        $user->transactions()->create([
+            'import_id' => $import->id,
+            'posted_at' => $today->subDays(5)->toDateString(),
+            'amount' => $amount,
+            'currency' => 'PLN',
+            'description' => "spend {$i}",
+            'counterparty' => null,
+            'balance' => null,
+            'hash' => hash('sha256', "spend-{$i}"),
+        ]);
+    }
+
+    // Income — must not show up in the spending chart.
+    $user->transactions()->create([
+        'import_id' => $import->id,
+        'posted_at' => $today->subDays(5)->toDateString(),
+        'amount' => '5000.00',
+        'currency' => 'PLN',
+        'description' => 'salary',
+        'counterparty' => null,
+        'balance' => null,
+        'hash' => hash('sha256', 'income-1'),
+    ]);
+
+    // Expense outside the 90-day window — must not be included.
+    $user->transactions()->create([
+        'import_id' => $import->id,
+        'posted_at' => $today->subDays(120)->toDateString(),
+        'amount' => '-1000.00',
+        'currency' => 'PLN',
+        'description' => 'old',
+        'counterparty' => null,
+        'balance' => null,
+        'hash' => hash('sha256', 'old-1'),
+    ]);
+
+    // Series is indexed [today-89 .. today]; 5 days ago lands on index 84.
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(
+            fn ($page) => $page->component('Dashboard')
+                ->has('spendingOverTime', 90)
+                ->where('spendingOverTime.0.date', $today->subDays(89)->toDateString())
+                ->where('spendingOverTime.89.date', $today->toDateString())
+                ->where('spendingOverTime.84.date', $today->subDays(5)->toDateString())
+                // Two same-day expenses sum, salary excluded, 120-days-ago row excluded.
+                ->where('spendingOverTime.84.total', 80)
+                ->where('spendingOverTime.83.total', 0),
         );
 });
 

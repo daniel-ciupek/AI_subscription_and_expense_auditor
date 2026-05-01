@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -46,7 +47,47 @@ class DashboardController extends Controller
             ],
             'recentTransactions' => $recentTransactions,
             'categoryBreakdown' => $this->buildCategoryBreakdown($user->id),
+            'spendingOverTime' => $this->buildSpendingOverTime($user->id),
         ]);
+    }
+
+    /**
+     * Daily expense totals for the last 90 days. Days with no expense are
+     * filled in with 0 so the area chart renders a continuous baseline
+     * instead of jumping between sparse points.
+     *
+     * @return array<int, array{date: string, total: float}>
+     */
+    private function buildSpendingOverTime(int $userId): array
+    {
+        $today = CarbonImmutable::now()->startOfDay();
+        $cutoff = $today->subDays(89); // inclusive 90-day window
+
+        $rows = DB::table('transactions')
+            ->where('user_id', $userId)
+            ->where('amount', '<', 0)
+            ->where('posted_at', '>=', $cutoff->toDateString())
+            ->groupBy('posted_at')
+            ->select('posted_at', DB::raw('SUM(amount) as total'))
+            ->get();
+
+        /** @var array<string, float> $totalsByDate */
+        $totalsByDate = [];
+        foreach ($rows as $row) {
+            $date = CarbonImmutable::parse((string) $row->posted_at)->toDateString();
+            $totalsByDate[$date] = abs((float) $row->total);
+        }
+
+        $series = [];
+        for ($cursor = $cutoff; $cursor->lessThanOrEqualTo($today); $cursor = $cursor->addDay()) {
+            $key = $cursor->toDateString();
+            $series[] = [
+                'date' => $key,
+                'total' => $totalsByDate[$key] ?? 0.0,
+            ];
+        }
+
+        return $series;
     }
 
     /**

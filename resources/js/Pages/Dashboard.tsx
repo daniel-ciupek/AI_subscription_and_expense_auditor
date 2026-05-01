@@ -6,6 +6,10 @@ import {
     CategoryBreakdownChart,
     type CategoryBreakdownEntry,
 } from '@/Components/Dashboard/CategoryBreakdownChart';
+import {
+    SpendingOverTimeChart,
+    type SpendingPoint,
+} from '@/Components/Dashboard/SpendingOverTimeChart';
 import { EmptyState } from '@/Components/UI/EmptyState';
 import { Head, Link } from '@inertiajs/react';
 import { cn } from '@/lib/cn';
@@ -29,6 +33,7 @@ interface DashboardProps {
     stats: Stats;
     recentTransactions: RecentTransaction[];
     categoryBreakdown: CategoryBreakdownEntry[];
+    spendingOverTime: SpendingPoint[];
 }
 
 const formatAmount = (amount: string, currency: string): string => {
@@ -53,9 +58,11 @@ export default function Dashboard({
     stats,
     recentTransactions,
     categoryBreakdown,
+    spendingOverTime,
 }: DashboardProps) {
     const hasTransactions = stats.transactions > 0;
     const hasBreakdown = categoryBreakdown.length > 0;
+    const hasSpendingTrend = spendingOverTime.some((point) => point.total > 0);
 
     return (
         <AuthenticatedLayout
@@ -94,6 +101,17 @@ export default function Dashboard({
                     </p>
                 </Card>
             </div>
+
+            {hasSpendingTrend && (
+                <Card className="mb-6">
+                    <div className="flex items-baseline justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-text-primary">
+                            Spending over time
+                        </h2>
+                    </div>
+                    <SpendingOverTimeChart data={spendingOverTime} />
+                </Card>
+            )}
 
             {hasBreakdown && (
                 <Card className="mb-6">

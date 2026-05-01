@@ -26,6 +26,7 @@ Dockerfile
 docker-compose.override.yml
 README.md
 CLAUDE.md
+INFORMACJE.md
 .editorconfig
 .gitignore
 .gitattributes

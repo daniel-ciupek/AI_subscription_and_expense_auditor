@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { Repeat, Upload, CalendarClock, AlertTriangle, RefreshCw } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
@@ -58,8 +58,14 @@ export default function SubscriptionsIndex({
     duplicateCount,
     transactionsCount,
 }: SubscriptionsIndexProps) {
+    const detectForm = useForm({});
     const runDetection = () => {
-        router.post(route('subscriptions.detect'));
+        if (detectForm.processing) {
+            return;
+        }
+        detectForm.post(route('subscriptions.detect'), {
+            preserveScroll: true,
+        });
     };
 
     return (
@@ -75,8 +81,15 @@ export default function SubscriptionsIndex({
                         </p>
                     </div>
                     {subscriptions.length > 0 && (
-                        <Button variant="ghost" onClick={runDetection}>
-                            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                        <Button
+                            variant="ghost"
+                            onClick={runDetection}
+                            loading={detectForm.processing}
+                            disabled={detectForm.processing}
+                        >
+                            {!detectForm.processing && (
+                                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                            )}
                             Re-run detection
                         </Button>
                     )}
@@ -107,8 +120,15 @@ export default function SubscriptionsIndex({
                         description={`We've analyzed your ${transactionsCount} transactions but haven't found any subscriptions yet. Detection needs at least two charges from the same merchant 25–35 days apart with consistent amounts — usually that means ~2 months of history.`}
                         action={
                             <div className="flex flex-wrap gap-2 justify-center">
-                                <Button variant="primary" onClick={runDetection}>
-                                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                                <Button
+                                    variant="primary"
+                                    onClick={runDetection}
+                                    loading={detectForm.processing}
+                                    disabled={detectForm.processing}
+                                >
+                                    {!detectForm.processing && (
+                                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                                    )}
                                     Run detection now
                                 </Button>
                                 <Link href={route('imports.create')}>

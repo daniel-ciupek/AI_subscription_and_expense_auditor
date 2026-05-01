@@ -37,7 +37,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
     Route::post('/subscriptions/detect', [SubscriptionController::class, 'detect'])
-        ->middleware('throttle:3,1')
+        ->middleware('throttle:10,1')
         ->name('subscriptions.detect');
 });
 

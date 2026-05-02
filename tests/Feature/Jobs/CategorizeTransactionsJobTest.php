@@ -11,12 +11,18 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\AiCategorizers\FakeAiCategorizer;
 use Database\Seeders\CategorySeeder;
+use Illuminate\Bus\Batchable;
 use Illuminate\Support\Facades\Cache;
 
 beforeEach(function () {
     $this->seed(CategorySeeder::class);
     $this->user = User::factory()->create();
     $this->import = Import::factory()->for($this->user)->create();
+});
+
+it('uses the Batchable trait so it can be dispatched inside a Bus::batch', function () {
+    expect(in_array(Batchable::class, class_uses_recursive(CategorizeTransactionsJob::class), true))
+        ->toBeTrue();
 });
 
 function makeTransaction(int $userId, int $importId, string $description, string $amount): Transaction

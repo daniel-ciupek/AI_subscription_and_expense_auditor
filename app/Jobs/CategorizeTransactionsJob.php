@@ -10,6 +10,7 @@ use App\Models\AiCategorization;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Support\TransactionNormalizer;
+use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -26,7 +27,7 @@ use Illuminate\Support\Facades\Log;
  */
 class CategorizeTransactionsJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public const MAX_BATCH = 20;
 

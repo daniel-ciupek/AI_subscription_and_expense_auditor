@@ -59,10 +59,26 @@ export default {
                     '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
                     '50%': { transform: 'translate(2%, -1%) scale(1.05)' },
                 },
+                'gradient-shift': {
+                    '0%, 100%': { backgroundPosition: '0% 50%' },
+                    '50%': { backgroundPosition: '100% 50%' },
+                },
+                'sparkle-float': {
+                    '0%, 100%': {
+                        transform: 'translateY(0) rotate(0deg)',
+                        opacity: '0.5',
+                    },
+                    '50%': {
+                        transform: 'translateY(-4px) rotate(180deg)',
+                        opacity: '1',
+                    },
+                },
             },
             animation: {
                 shimmer: 'shimmer 2s linear infinite',
                 'mesh-shift': 'mesh-shift 18s ease-in-out infinite',
+                'gradient-shift': 'gradient-shift 6s ease infinite',
+                'sparkle-float': 'sparkle-float 3s ease-in-out infinite',
             },
         },
     },

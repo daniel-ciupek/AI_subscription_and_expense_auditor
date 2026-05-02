@@ -1,10 +1,14 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Repeat, Upload, CalendarClock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
 import { Card } from '@/Components/UI/Card';
 import { EmptyState } from '@/Components/UI/EmptyState';
+import { DuplicateAlertModal } from '@/Components/Subscriptions/DuplicateAlertModal';
 import { cn } from '@/lib/cn';
+
+const DUPLICATES_SEEN_KEY = 'subscriptions:duplicates-seen';
 
 interface SubscriptionRow {
     id: number;
@@ -68,6 +72,70 @@ export default function SubscriptionsIndex({
         });
     };
 
+    const duplicatePairs = useMemo(
+        () =>
+            subscriptions
+                .filter(
+                    (s): s is SubscriptionRow & { duplicate_of_name: string } =>
+                        s.is_duplicate_of_id !== null &&
+                        s.duplicate_of_name !== null,
+                )
+                .map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    duplicateOfName: s.duplicate_of_name,
+                })),
+        [subscriptions],
+    );
+
+    const dupHash = useMemo(
+        () =>
+            duplicatePairs
+                .map((p) => p.id)
+                .sort((a, b) => a - b)
+                .join(','),
+        [duplicatePairs],
+    );
+
+    const [showAlert, setShowAlert] = useState(false);
+    const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+    useEffect(() => {
+        if (dupHash === '') return;
+        try {
+            const seen = window.localStorage.getItem(DUPLICATES_SEEN_KEY);
+            if (seen !== dupHash) setShowAlert(true);
+        } catch {
+            setShowAlert(true);
+        }
+    }, [dupHash]);
+
+    const dismissAlert = () => {
+        try {
+            window.localStorage.setItem(DUPLICATES_SEEN_KEY, dupHash);
+        } catch {
+            // localStorage may be disabled; ignore
+        }
+        setShowAlert(false);
+    };
+
+    const reviewDuplicates = () => {
+        dismissAlert();
+        const firstId = duplicatePairs[0]?.id;
+        if (firstId === undefined) return;
+        const el = cardRefs.current.get(firstId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-accent-neon', 'shadow-glow-neon');
+        window.setTimeout(() => {
+            el.classList.remove(
+                'ring-2',
+                'ring-accent-neon',
+                'shadow-glow-neon',
+            );
+        }, 2000);
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -97,6 +165,13 @@ export default function SubscriptionsIndex({
             }
         >
             <Head title="Subscriptions" />
+
+            <DuplicateAlertModal
+                open={showAlert}
+                duplicates={duplicatePairs}
+                onReview={reviewDuplicates}
+                onDismiss={dismissAlert}
+            />
 
             {subscriptions.length === 0 ? (
                 transactionsCount === 0 ? (
@@ -189,7 +264,23 @@ export default function SubscriptionsIndex({
                                 <Card
                                     key={sub.id}
                                     hoverable
+                                    ref={
+                                        isDuplicate
+                                            ? (el) => {
+                                                  if (el)
+                                                      cardRefs.current.set(
+                                                          sub.id,
+                                                          el,
+                                                      );
+                                                  else
+                                                      cardRefs.current.delete(
+                                                          sub.id,
+                                                      );
+                                              }
+                                            : undefined
+                                    }
                                     className={cn(
+                                        'transition-shadow duration-500',
                                         isDuplicate &&
                                             'ring-1 ring-state-warning/30 bg-state-warning/5',
                                     )}

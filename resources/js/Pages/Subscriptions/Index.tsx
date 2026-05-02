@@ -288,6 +288,10 @@ export default function SubscriptionsIndex({
                             const isDuplicate = sub.is_duplicate_of_id !== null;
                             return (
                                 <motion.div key={sub.id} variants={itemVariants}>
+                                <Link
+                                    href={route('subscriptions.show', sub.id)}
+                                    className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                                >
                                 <Card
                                     hoverable
                                     ref={
@@ -375,6 +379,7 @@ export default function SubscriptionsIndex({
                                         </span>
                                     </div>
                                 </Card>
+                                </Link>
                                 </motion.div>
                             );
                         })}

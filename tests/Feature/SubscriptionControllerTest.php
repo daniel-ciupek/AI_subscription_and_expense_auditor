@@ -201,6 +201,82 @@ it('blocks unauthenticated requests to the detect endpoint', function () {
     $this->post(route('subscriptions.detect'))->assertRedirect(route('login'));
 });
 
+it('renders the show page for the owner with charge history pulled from transactions', function () {
+    $user = User::factory()->create();
+    $import = Import::factory()->for($user)->create();
+
+    $subscription = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'NETFLIX SUBSCRIPTION',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-15',
+        'next_expected_charge_at' => '2026-05-15',
+    ]);
+
+    foreach ([15, 45, 75] as $i => $daysAgo) {
+        Transaction::create([
+            'user_id' => $user->id,
+            'import_id' => $import->id,
+            'posted_at' => now()->subDays($daysAgo),
+            'amount' => '-49.99',
+            'currency' => 'PLN',
+            'description' => 'NETFLIX SUBSCRIPTION',
+            'counterparty' => null,
+            'balance' => null,
+            'hash' => hash('sha256', "netflix-{$i}"),
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get(route('subscriptions.show', $subscription))
+        ->assertOk()
+        ->assertInertia(
+            fn ($page) => $page->component('Subscriptions/Show')
+                ->where('subscription.id', $subscription->id)
+                ->where('subscription.name', 'NETFLIX SUBSCRIPTION')
+                ->where('stats.charge_count', 3)
+                ->where('stats.total_spent', 149.97)
+                ->has('charges', 3),
+        );
+});
+
+it('returns 403 when one user tries to view another user\'s subscription', function () {
+    $alice = User::factory()->create();
+    $bob = User::factory()->create();
+
+    $bobSubscription = Subscription::create([
+        'user_id' => $bob->id,
+        'name' => 'BOBs HBO',
+        'amount' => '29.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($alice)
+        ->get(route('subscriptions.show', $bobSubscription))
+        ->assertForbidden();
+});
+
+it('redirects guests away from subscription detail', function () {
+    $user = User::factory()->create();
+    $subscription = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'X',
+        'amount' => '10.00',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->get(route('subscriptions.show', $subscription))
+        ->assertRedirect(route('login'));
+});
+
 it('does not leak another user\'s subscriptions', function () {
     $alice = User::factory()->create();
     $bob = User::factory()->create();

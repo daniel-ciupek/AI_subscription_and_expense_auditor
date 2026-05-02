@@ -39,6 +39,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/subscriptions/detect', [SubscriptionController::class, 'detect'])
         ->middleware('throttle:10,1')
         ->name('subscriptions.detect');
+    Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show'])
+        ->name('subscriptions.show');
 });
 
 require __DIR__.'/auth.php';

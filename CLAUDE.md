@@ -13,7 +13,7 @@ Język interfejsu: **angielski** (przyciski, walidacje, komunikaty). Dane bankow
   - **Ikony:** Lucide React.
 - **Baza danych:** PostgreSQL 16 (główna) / SQLite (do testów Pest).
 - **Kolejki/Cache:** Redis 7.
-- **AI API:** Groq (modele Llama 3/4) ze 100% kompatybilnością z formatem zapytań OpenAI (via Laravel HTTP Client).
+- **AI API:** Groq (Llama 3/4) lub DeepSeek (`deepseek-chat`) — oba w 100% kompatybilne z formatem zapytań OpenAI (via Laravel HTTP Client).
 
 ## 🔐 Autoryzacja i Uwierzytelnianie
 - **Auth scaffold:** Laravel Breeze + Inertia + React + TypeScript (`php artisan breeze:install react --typescript`).
@@ -80,9 +80,10 @@ Sail zjada kilkaset MB RAM bezczynnie — startujemy go **tylko kiedy potrzebny*
 ### 2. Wzorzec Strategii dla AI (Dependency Injection)
 - Aplikacja komunikuje się z AI poprzez interfejs `App\Contracts\AiCategorizerInterface`.
 - Implementacje:
-  - `FakeAiCategorizer` — statyczny JSON po `sleep()`, używany w testach i w lokalnym dev bez klucza Groq.
+  - `FakeAiCategorizer` — statyczny JSON po `sleep()`, używany w testach i w lokalnym dev bez klucza.
   - `GroqAiCategorizer` — API Groq z Laravel HTTP Client.
-- Sterowane zmienną `AI_DRIVER=fake|groq` w `.env`. Binding w `AppServiceProvider`.
+  - `DeepseekAiCategorizer` — API DeepSeek (`deepseek-chat`), OpenAI-compatible.
+- Sterowane zmienną `AI_DRIVER=fake|groq|deepseek` w `.env`. Binding w `AppServiceProvider`.
 
 ### 3. Wzorzec Strategii dla parserów CSV (5 banków)
 - Aplikacja obsługuje CSV z **pięciu polskich banków**: mBank, PKO BP, ING, Santander, BGŻ BNP Paribas.

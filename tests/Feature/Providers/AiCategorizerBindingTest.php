@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Contracts\AiCategorizerInterface;
+use App\Services\AiCategorizers\DeepseekAiCategorizer;
 use App\Services\AiCategorizers\FakeAiCategorizer;
 use App\Services\AiCategorizers\GroqAiCategorizer;
 
@@ -32,6 +33,25 @@ it('throws a clear error when AI_DRIVER=groq but the key is missing', function (
 
     expect(fn () => app(AiCategorizerInterface::class))
         ->toThrow(RuntimeException::class, 'GROQ_API_KEY is empty');
+});
+
+it('resolves the deepseek categorizer when AI_DRIVER=deepseek and a key is present', function () {
+    config()->set('services.ai.driver', 'deepseek');
+    config()->set('services.deepseek.api_key', 'sk-test-123');
+    app()->forgetInstance(AiCategorizerInterface::class);
+
+    $instance = app(AiCategorizerInterface::class);
+
+    expect($instance)->toBeInstanceOf(DeepseekAiCategorizer::class);
+});
+
+it('throws a clear error when AI_DRIVER=deepseek but the key is missing', function () {
+    config()->set('services.ai.driver', 'deepseek');
+    config()->set('services.deepseek.api_key', '');
+    app()->forgetInstance(AiCategorizerInterface::class);
+
+    expect(fn () => app(AiCategorizerInterface::class))
+        ->toThrow(RuntimeException::class, 'DEEPSEEK_API_KEY is empty');
 });
 
 it('throws a clear error for unknown drivers', function () {

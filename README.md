@@ -20,7 +20,7 @@ and shipping a fully working flow end-to-end.
   Bank auto-detected from the file headers; manual bank dropdown as fallback.
 - **Idempotent imports** — re-uploading the same statement inserts zero duplicate rows
   thanks to a deterministic per-row hash (`sha256(user_id|posted_at|amount|description|balance)`).
-- **AI categorization with cost controls** — Groq (Llama 3.3 70B) via OpenAI-compatible
+- **AI categorization with cost controls** — Groq (Llama 3.3 70B) or DeepSeek (`deepseek-chat`) via OpenAI-compatible
   HTTP, batched 20 transactions per prompt, JSON-schema validated to block hallucinated
   slugs. Redis cache keyed on a normalized merchant fingerprint with prompt-version
   invalidation, 30-day TTL.
@@ -41,7 +41,7 @@ and shipping a fully working flow end-to-end.
 
 - **Backend:** Laravel 13, PHP 8.5, PostgreSQL 18, Redis 8
 - **Frontend:** Inertia.js + React 18 + TypeScript, Tailwind CSS, Recharts, Framer Motion, Lucide
-- **AI:** Groq API (OpenAI-compatible chat completions, `llama-3.3-70b-versatile`)
+- **AI:** Groq (`llama-3.3-70b-versatile`) or DeepSeek (`deepseek-chat`) — OpenAI-compatible chat completions
   with a swappable `FakeAiCategorizer` for offline dev/CI
 - **Infra:** Laravel Sail (php-fpm 8.5 / pgsql / redis / mailpit / queue worker), Docker Compose
 - **Quality gates:** Pest (126 tests), Larastan level 8, Pint, ESLint, TypeScript strict mode
@@ -84,7 +84,10 @@ the alerting path), categorized using the deterministic `FakeAiCategorizer`.
 ## Switching to real AI categorization
 
 By default the app runs `AI_DRIVER=fake` so it works without paid credentials.
-To use Groq's Llama 3.3 70B:
+Two production providers are wired in, both speak the OpenAI-compatible chat
+completions protocol so the request shape and validation are identical.
+
+**Groq (Llama 3.3 70B):**
 
 1. Grab a key from <https://console.groq.com>.
 2. Set in `.env`:
@@ -92,10 +95,20 @@ To use Groq's Llama 3.3 70B:
    AI_DRIVER=groq
    GROQ_API_KEY=gsk_...
    ```
-3. Restart the queue worker so the binding picks up: `./vendor/bin/sail restart queue`.
 
-Subsequent imports will use Groq; previously-cached categorizations stay valid
-since the cache key includes the prompt version.
+**DeepSeek (`deepseek-chat`):**
+
+1. Grab a key from <https://platform.deepseek.com/api_keys>.
+2. Set in `.env`:
+   ```env
+   AI_DRIVER=deepseek
+   DEEPSEEK_API_KEY=sk-...
+   ```
+
+After either change, restart the queue worker so the binding picks up:
+`./vendor/bin/sail restart queue`. Previously-cached categorizations stay
+valid because each driver carries its own prompt version in the cache key,
+so providers don't poison one another's cached answers.
 
 ## Project structure
 
@@ -113,7 +126,7 @@ app/
 │   ├── CategorizeTransactionsJob.php   # batched + Redis-cached
 │   └── DetectSubscriptionsJob.php      # runs after categorize batch
 ├── Services/
-│   ├── AiCategorizers/      — FakeAiCategorizer, GroqAiCategorizer
+│   ├── AiCategorizers/      — FakeAiCategorizer, GroqAiCategorizer, DeepseekAiCategorizer
 │   ├── Parsers/             — 5 bank parsers + StatementReader (CSV/XLS/ODS)
 │   └── BankDetector.php     # auto-detect from headers
 └── Support/
@@ -136,11 +149,12 @@ database/
 
 ### Strategy pattern × 2
 
-- **`AiCategorizerInterface`** has two implementations: `FakeAiCategorizer`
-  (deterministic keyword matching, used in tests + `AI_DRIVER=fake`) and
-  `GroqAiCategorizer` (HTTP Groq client, retries with exponential backoff,
-  schema-validated JSON, falls back to `other` rather than letting hallucinated
-  slugs reach the database).
+- **`AiCategorizerInterface`** has three implementations: `FakeAiCategorizer`
+  (deterministic keyword matching, used in tests + `AI_DRIVER=fake`),
+  `GroqAiCategorizer` (HTTP Groq client) and `DeepseekAiCategorizer` (HTTP
+  DeepSeek client). Both production drivers retry with exponential backoff,
+  validate the JSON response against a strict schema, and fall back to `other`
+  rather than letting hallucinated slugs reach the database.
 - **`CsvParserInterface`** has one implementation per supported bank.
   `BankDetector` matches the file's header row against each parser's
   signature; on a tie/miss the import form's bank dropdown is the fallback.

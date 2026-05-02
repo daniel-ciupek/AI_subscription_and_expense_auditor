@@ -164,7 +164,7 @@ export default function Dashboard({
                                 </h2>
                                 <Link
                                     href={route('subscriptions.index')}
-                                    className="text-xs text-accent-neon hover:text-accent-neon/80 transition-colors"
+                                    className="text-xs text-accent-neon hover:text-accent-neon/80 transition-colors rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
                                 >
                                     View all
                                 </Link>

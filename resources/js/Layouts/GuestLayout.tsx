@@ -10,7 +10,7 @@ export default function Guest({ children }: PropsWithChildren) {
 
             <Link
                 href="/"
-                className="flex items-center gap-2 mb-8 group"
+                className="flex items-center gap-2 mb-8 group rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                 aria-label="Home"
             >
                 <div className="rounded-2xl bg-accent-primary/10 p-2.5 ring-1 ring-accent-primary/30 group-hover:ring-accent-primary/60 transition-all">

@@ -78,7 +78,7 @@ export default function Login({
                         name="remember"
                         checked={data.remember}
                         onChange={(e) => setData('remember', e.target.checked)}
-                        className="h-4 w-4 rounded border-white/20 bg-bg-surface text-accent-primary focus:ring-accent-neon focus:ring-offset-0"
+                        className="h-4 w-4 rounded border-white/20 bg-bg-surface text-accent-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated"
                     />
                     Remember me
                 </label>
@@ -87,7 +87,7 @@ export default function Login({
                     {canResetPassword ? (
                         <Link
                             href={route('password.request')}
-                            className="text-sm text-text-secondary hover:text-accent-neon transition-colors"
+                            className="text-sm text-text-secondary hover:text-accent-neon transition-colors rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated"
                         >
                             Forgot password?
                         </Link>
@@ -104,7 +104,7 @@ export default function Login({
                 Don&apos;t have an account?{' '}
                 <Link
                     href={route('register')}
-                    className="text-accent-neon hover:text-accent-neon/80 transition-colors"
+                    className="text-accent-neon hover:text-accent-neon/80 transition-colors rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated"
                 >
                     Sign up
                 </Link>

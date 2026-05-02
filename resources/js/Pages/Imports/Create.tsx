@@ -1,6 +1,6 @@
 import { ChangeEvent, DragEvent, FormEventHandler, useRef, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Upload, FileText, X } from 'lucide-react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
@@ -21,6 +21,7 @@ interface FormData {
 export default function ImportsCreate({ banks }: { banks: BankOption[] }) {
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const reduce = useReducedMotion();
 
     const { data, setData, post, processing, errors, reset, progress } =
         useForm<FormData>({
@@ -80,10 +81,19 @@ export default function ImportsCreate({ banks }: { banks: BankOption[] }) {
                         onDragLeave={() => setDragOver(false)}
                         onDrop={onDrop}
                         onClick={() => inputRef.current?.click()}
-                        animate={dragOver ? { scale: 1.01 } : { scale: 1 }}
-                        transition={{ duration: 0.15 }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                inputRef.current?.click();
+                            }
+                        }}
+                        animate={
+                            reduce ? undefined : dragOver ? { scale: 1.01 } : { scale: 1 }
+                        }
+                        transition={{ duration: reduce ? 0 : 0.15 }}
                         className={cn(
                             'cursor-pointer rounded-2xl border-2 border-dashed p-10 text-center transition-colors duration-200',
+                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface',
                             dragOver
                                 ? 'border-accent-neon bg-accent-neon/5'
                                 : 'border-white/15 hover:border-white/30 hover:bg-white/[0.03]',
@@ -120,7 +130,7 @@ export default function ImportsCreate({ banks }: { banks: BankOption[] }) {
                                         e.stopPropagation();
                                         handleFile(null);
                                     }}
-                                    className="ml-2 text-text-secondary hover:text-state-danger transition-colors"
+                                    className="ml-2 text-text-secondary hover:text-state-danger transition-colors rounded-md p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
                                     aria-label="Remove file"
                                 >
                                     <X className="h-5 w-5" />
@@ -183,7 +193,7 @@ export default function ImportsCreate({ banks }: { banks: BankOption[] }) {
                 <div className="flex justify-between items-center">
                     <Link
                         href={route('imports.index')}
-                        className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                        className="text-sm text-text-secondary hover:text-text-primary transition-colors rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
                     >
                         ← Back to imports
                     </Link>

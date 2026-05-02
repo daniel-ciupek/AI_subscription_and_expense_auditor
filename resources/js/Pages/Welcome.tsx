@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Sparkles, Upload, Repeat, ChartLine } from 'lucide-react';
 import { Button } from '@/Components/UI/Button';
 import { Card } from '@/Components/UI/Card';
@@ -8,6 +8,14 @@ import { PageProps } from '@/types';
 export default function Welcome({
     auth,
 }: PageProps<{ laravelVersion: string; phpVersion: string }>) {
+    const reduce = useReducedMotion();
+    const fadeUp = reduce
+        ? { initial: false, animate: { opacity: 1, y: 0 } }
+        : {
+              initial: { opacity: 0, y: 20 },
+              animate: { opacity: 1, y: 0 },
+          };
+
     return (
         <>
             <Head title="Welcome" />
@@ -19,7 +27,10 @@ export default function Welcome({
                 />
 
                 <header className="px-6 py-6 max-w-7xl mx-auto flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2 group">
+                    <Link
+                        href="/"
+                        className="flex items-center gap-2 group rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                    >
                         <div className="rounded-2xl bg-accent-primary/10 p-2.5 ring-1 ring-accent-primary/30 group-hover:ring-accent-primary/60 transition-all">
                             <Sparkles className="h-6 w-6 text-accent-neon" />
                         </div>
@@ -54,9 +65,8 @@ export default function Welcome({
 
                 <main className="px-6 max-w-7xl mx-auto pt-16 pb-20">
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
+                        {...fadeUp}
+                        transition={{ duration: reduce ? 0 : 0.5 }}
                         className="text-center max-w-3xl mx-auto mb-16"
                     >
                         <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-xs text-text-secondary mb-6">
@@ -86,9 +96,8 @@ export default function Welcome({
                     </motion.div>
 
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.1 }}
+                        {...fadeUp}
+                        transition={{ duration: reduce ? 0 : 0.5, delay: reduce ? 0 : 0.1 }}
                         className="grid grid-cols-1 md:grid-cols-3 gap-4"
                     >
                         <Card hoverable>

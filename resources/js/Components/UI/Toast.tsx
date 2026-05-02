@@ -109,7 +109,7 @@ export function ToastContainer() {
                             <button
                                 onClick={() => dismiss(toast.id)}
                                 aria-label="Dismiss"
-                                className="absolute top-3 right-3 text-text-secondary hover:text-text-primary transition-colors"
+                                className="absolute top-3 right-3 text-text-secondary hover:text-text-primary transition-colors rounded-md p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated"
                             >
                                 <X className="h-4 w-4" />
                             </button>

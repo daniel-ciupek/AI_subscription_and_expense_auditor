@@ -106,7 +106,7 @@ export default function Register() {
                 <div className="flex items-center justify-between gap-3 mt-2">
                     <Link
                         href={route('login')}
-                        className="text-sm text-text-secondary hover:text-accent-neon transition-colors"
+                        className="text-sm text-text-secondary hover:text-accent-neon transition-colors rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated"
                     >
                         Already registered?
                     </Link>

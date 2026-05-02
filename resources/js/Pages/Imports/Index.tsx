@@ -136,7 +136,7 @@ export default function ImportsIndex({ imports }: { imports: ImportRow[] }) {
                                 <button
                                     type="button"
                                     onClick={() => handleDelete(imp.id)}
-                                    className="text-text-secondary hover:text-state-danger transition-colors p-2 rounded-xl"
+                                    className="text-text-secondary hover:text-state-danger transition-colors p-2 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-state-danger focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
                                     aria-label={`Delete import ${imp.id}`}
                                 >
                                     <Trash2 className="h-4 w-4" />

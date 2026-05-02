@@ -56,7 +56,7 @@ export default function Authenticated({
                 <div className="glass-elevated rounded-3xl flex-1 flex flex-col p-4">
                     <Link
                         href="/dashboard"
-                        className="flex items-center gap-2 px-2 py-3 mb-2 group"
+                        className="flex items-center gap-2 px-2 py-3 mb-2 group rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated"
                         aria-label="Home"
                     >
                         <div className="rounded-xl bg-accent-primary/10 p-2 ring-1 ring-accent-primary/30 group-hover:ring-accent-primary/60 transition-all">
@@ -77,6 +77,7 @@ export default function Authenticated({
                                     href={item.href}
                                     className={cn(
                                         'flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm transition-all duration-200',
+                                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated',
                                         active
                                             ? 'bg-accent-primary/15 text-text-primary ring-1 ring-accent-primary/30'
                                             : 'text-text-secondary hover:text-text-primary hover:bg-white/5',
@@ -101,7 +102,7 @@ export default function Authenticated({
                         </div>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm w-full text-text-secondary hover:text-state-danger hover:bg-state-danger/10 transition-all duration-200"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm w-full text-text-secondary hover:text-state-danger hover:bg-state-danger/10 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-state-danger focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated"
                         >
                             <LogOut className="h-5 w-5" aria-hidden="true" />
                             <span>Log out</span>
@@ -137,6 +138,7 @@ export default function Authenticated({
                                 href={item.href}
                                 className={cn(
                                     'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-[10px] transition-all duration-200',
+                                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated',
                                     active
                                         ? 'text-accent-neon'
                                         : 'text-text-secondary hover:text-text-primary',

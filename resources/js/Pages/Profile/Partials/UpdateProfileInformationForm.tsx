@@ -72,7 +72,7 @@ export default function UpdateProfileInformation({
                             href={route('verification.send')}
                             method="post"
                             as="button"
-                            className="text-accent-neon hover:text-accent-neon/80 transition-colors"
+                            className="text-accent-neon hover:text-accent-neon/80 transition-colors rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
                         >
                             Re-send verification email
                         </Link>

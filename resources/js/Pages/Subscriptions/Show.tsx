@@ -248,14 +248,16 @@ export default function SubscriptionShow({
                         {stats.charge_count} charge{stats.charge_count === 1 ? '' : 's'}
                     </p>
                 </div>
-                <p className="text-xs text-text-secondary mb-4 flex items-center gap-2">
-                    <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
-                    Last charged {formatDate(subscription.last_charge_at)}
+                <p className="text-xs text-text-secondary mb-4 flex items-center gap-x-2 gap-y-1 flex-wrap">
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>Last charged {formatDate(subscription.last_charge_at)}</span>
                     {subscription.next_expected_charge_at && (
                         <>
                             <span className="text-text-secondary/50">·</span>
-                            Next expected{' '}
-                            {formatDate(subscription.next_expected_charge_at)}
+                            <span>
+                                Next expected{' '}
+                                {formatDate(subscription.next_expected_charge_at)}
+                            </span>
                         </>
                     )}
                 </p>

@@ -160,8 +160,8 @@ export default function SubscriptionsIndex({
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-end justify-between gap-4">
-                    <div>
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div className="min-w-0">
                         <h1 className="text-2xl font-semibold text-text-primary">
                             Subscriptions
                         </h1>
@@ -175,6 +175,7 @@ export default function SubscriptionsIndex({
                             onClick={runDetection}
                             loading={detectForm.processing}
                             disabled={detectForm.processing}
+                            className="self-start sm:self-auto shrink-0"
                         >
                             {!detectForm.processing && (
                                 <RefreshCw className="h-4 w-4" aria-hidden="true" />

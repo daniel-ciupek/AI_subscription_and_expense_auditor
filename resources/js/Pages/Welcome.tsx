@@ -26,15 +26,15 @@ export default function Welcome({
                     aria-hidden="true"
                 />
 
-                <header className="px-6 py-6 max-w-7xl mx-auto flex items-center justify-between">
+                <header className="px-4 sm:px-6 py-6 max-w-7xl mx-auto flex items-center justify-between gap-3">
                     <Link
                         href="/"
-                        className="flex items-center gap-2 group rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                        className="flex items-center gap-2 group rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base min-w-0"
                     >
-                        <div className="rounded-2xl bg-accent-primary/10 p-2.5 ring-1 ring-accent-primary/30 group-hover:ring-accent-primary/60 transition-all">
+                        <div className="rounded-2xl bg-accent-primary/10 p-2.5 ring-1 ring-accent-primary/30 group-hover:ring-accent-primary/60 transition-all shrink-0">
                             <Sparkles className="h-6 w-6 text-accent-neon" />
                         </div>
-                        <span className="text-text-primary font-semibold tracking-tight">
+                        <span className="hidden sm:inline text-text-primary font-semibold tracking-tight truncate">
                             Subscription Auditor
                         </span>
                     </Link>
@@ -63,7 +63,7 @@ export default function Welcome({
                     </nav>
                 </header>
 
-                <main className="px-6 max-w-7xl mx-auto pt-16 pb-20">
+                <main className="px-4 sm:px-6 max-w-7xl mx-auto pt-16 pb-20">
                     <motion.div
                         {...fadeUp}
                         transition={{ duration: reduce ? 0 : 0.5 }}

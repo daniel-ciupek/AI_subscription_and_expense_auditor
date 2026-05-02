@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Repeat, Upload, CalendarClock, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
 import { Card } from '@/Components/UI/Card';
@@ -99,6 +100,26 @@ export default function SubscriptionsIndex({
 
     const [showAlert, setShowAlert] = useState(false);
     const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+    const reduce = useReducedMotion();
+    const listVariants = reduce
+        ? undefined
+        : {
+              hidden: { opacity: 0 },
+              show: {
+                  opacity: 1,
+                  transition: { staggerChildren: 0.05, delayChildren: 0.05 },
+              },
+          };
+    const itemVariants = reduce
+        ? undefined
+        : {
+              hidden: { opacity: 0, y: 12 },
+              show: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { duration: 0.25, ease: 'easeOut' as const },
+              },
+          };
 
     useEffect(() => {
         if (dupHash === '') return;
@@ -257,12 +278,17 @@ export default function SubscriptionsIndex({
                         </Card>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <motion.div
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        variants={listVariants}
+                        initial={reduce ? false : 'hidden'}
+                        animate="show"
+                    >
                         {subscriptions.map((sub) => {
                             const isDuplicate = sub.is_duplicate_of_id !== null;
                             return (
+                                <motion.div key={sub.id} variants={itemVariants}>
                                 <Card
-                                    key={sub.id}
                                     hoverable
                                     ref={
                                         isDuplicate
@@ -349,9 +375,10 @@ export default function SubscriptionsIndex({
                                         </span>
                                     </div>
                                 </Card>
+                                </motion.div>
                             );
                         })}
-                    </div>
+                    </motion.div>
                 </>
             )}
         </AuthenticatedLayout>

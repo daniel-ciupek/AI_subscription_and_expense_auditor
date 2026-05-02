@@ -46,7 +46,7 @@ export default function Authenticated({
 
     return (
         <div className="relative min-h-screen overflow-hidden">
-            <div className="fixed inset-0 bg-mesh animate-mesh-shift -z-10" aria-hidden="true" />
+            <div className="fixed inset-0 bg-mesh motion-safe:animate-mesh-shift -z-10" aria-hidden="true" />
 
             {/* Sidebar — desktop */}
             <aside

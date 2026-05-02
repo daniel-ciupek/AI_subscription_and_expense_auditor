@@ -95,7 +95,7 @@ export default function ImportsCreate({ banks }: { banks: BankOption[] }) {
                             'cursor-pointer rounded-2xl border-2 border-dashed p-10 text-center transition-colors duration-200',
                             'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface',
                             dragOver
-                                ? 'border-accent-neon bg-accent-neon/5'
+                                ? 'border-accent-neon bg-accent-neon/5 shadow-glow-neon motion-safe:animate-pulse'
                                 : 'border-white/15 hover:border-white/30 hover:bg-white/[0.03]',
                         )}
                         role="button"

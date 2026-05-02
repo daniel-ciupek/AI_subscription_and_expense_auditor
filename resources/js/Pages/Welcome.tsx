@@ -22,7 +22,7 @@ export default function Welcome({
 
             <div className="relative min-h-screen overflow-hidden">
                 <div
-                    className="fixed inset-0 bg-mesh animate-mesh-shift -z-10"
+                    className="fixed inset-0 bg-mesh motion-safe:animate-mesh-shift -z-10"
                     aria-hidden="true"
                 />
 

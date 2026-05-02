@@ -6,7 +6,7 @@ import { ToastContainer } from '@/Components/UI/Toast';
 export default function Guest({ children }: PropsWithChildren) {
     return (
         <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-10 overflow-hidden">
-            <div className="absolute inset-0 bg-mesh animate-mesh-shift -z-10" aria-hidden="true" />
+            <div className="absolute inset-0 bg-mesh motion-safe:animate-mesh-shift -z-10" aria-hidden="true" />
 
             <Link
                 href="/"

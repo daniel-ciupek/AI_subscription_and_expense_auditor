@@ -74,23 +74,23 @@ export function DuplicateAlertModal({
                         className="relative w-full max-w-md"
                     >
                         <div
-                            className="absolute -inset-px rounded-3xl bg-gradient-to-r from-accent-primary via-accent-neon to-accent-primary bg-[length:200%_200%] animate-gradient-shift opacity-80 blur-sm"
+                            className="absolute -inset-px rounded-3xl bg-gradient-to-r from-accent-primary via-accent-neon to-accent-primary bg-[length:200%_200%] motion-safe:animate-gradient-shift opacity-80 blur-sm"
                             aria-hidden="true"
                         />
 
                         <div className="relative glass-elevated rounded-3xl p-6 overflow-hidden">
                             <Sparkles
-                                className="absolute top-4 right-6 h-3 w-3 text-accent-neon animate-sparkle-float"
+                                className="absolute top-4 right-6 h-3 w-3 text-accent-neon motion-safe:animate-sparkle-float"
                                 style={{ animationDelay: '0s' }}
                                 aria-hidden="true"
                             />
                             <Sparkles
-                                className="absolute top-10 right-16 h-2 w-2 text-accent-primary animate-sparkle-float"
+                                className="absolute top-10 right-16 h-2 w-2 text-accent-primary motion-safe:animate-sparkle-float"
                                 style={{ animationDelay: '0.7s' }}
                                 aria-hidden="true"
                             />
                             <Sparkles
-                                className="absolute bottom-12 left-8 h-2.5 w-2.5 text-accent-neon animate-sparkle-float"
+                                className="absolute bottom-12 left-8 h-2.5 w-2.5 text-accent-neon motion-safe:animate-sparkle-float"
                                 style={{ animationDelay: '1.4s' }}
                                 aria-hidden="true"
                             />

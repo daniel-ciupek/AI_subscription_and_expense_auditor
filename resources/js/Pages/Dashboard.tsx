@@ -1,4 +1,5 @@
 import { Upload, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
 import { Card } from '@/Components/UI/Card';
@@ -77,6 +78,26 @@ export default function Dashboard({
     const hasSpendingTrend = spendingOverTime.some((point) => point.total > 0);
     const hasTopSubscriptions = topSubscriptions.length > 0;
     const hasAlerts = aiAlerts.length > 0;
+    const reduce = useReducedMotion();
+    const txListVariants = reduce
+        ? undefined
+        : {
+              hidden: { opacity: 0 },
+              show: {
+                  opacity: 1,
+                  transition: { staggerChildren: 0.04 },
+              },
+          };
+    const txItemVariants = reduce
+        ? undefined
+        : {
+              hidden: { opacity: 0, x: -8 },
+              show: {
+                  opacity: 1,
+                  x: 0,
+                  transition: { duration: 0.2, ease: 'easeOut' as const },
+              },
+          };
 
     return (
         <AuthenticatedLayout
@@ -185,13 +206,19 @@ export default function Dashboard({
                             last {recentTransactions.length}
                         </span>
                     </div>
-                    <ul className="flex flex-col divide-y divide-white/5">
+                    <motion.ul
+                        className="flex flex-col divide-y divide-white/5"
+                        variants={txListVariants}
+                        initial={reduce ? false : 'hidden'}
+                        animate="show"
+                    >
                         {recentTransactions.map((tx) => {
                             const isExpense = Number.parseFloat(tx.amount) < 0;
                             const Icon = isExpense ? ArrowDownRight : ArrowUpRight;
                             return (
-                                <li
+                                <motion.li
                                     key={tx.id}
+                                    variants={txItemVariants}
                                     className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
                                 >
                                     <div
@@ -221,10 +248,10 @@ export default function Dashboard({
                                     >
                                         {formatAmount(tx.amount, tx.currency)}
                                     </p>
-                                </li>
+                                </motion.li>
                             );
                         })}
-                    </ul>
+                    </motion.ul>
                 </Card>
             ) : (
                 <EmptyState

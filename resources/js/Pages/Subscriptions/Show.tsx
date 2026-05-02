@@ -263,8 +263,8 @@ export default function SubscriptionShow({
                 </p>
 
                 {chartData.length > 0 ? (
-                    <div className="h-56 -mx-2">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <div className="-mx-2">
+                        <ResponsiveContainer width="100%" height={224}>
                             <BarChart
                                 data={chartData}
                                 margin={{ top: 8, right: 8, bottom: 0, left: 8 }}

@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Upload, Trash2, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
+import { Upload, Trash2, CheckCircle2, XCircle, Loader2, Clock, RefreshCw } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Button } from '@/Components/UI/Button';
@@ -15,6 +15,7 @@ interface ImportRow {
     failed_reason: string | null;
     transactions_count: number;
     created_at: string;
+    can_retry: boolean;
 }
 
 const bankLabels: Record<string, string> = {
@@ -55,6 +56,14 @@ export default function ImportsIndex({ imports }: { imports: ImportRow[] }) {
     const handleDelete = (id: number) => {
         if (!confirm('Delete this import?')) return;
         router.delete(route('imports.destroy', id));
+    };
+
+    const handleRetry = (id: number) => {
+        router.post(
+            route('imports.retry', id),
+            {},
+            { preserveScroll: true },
+        );
     };
 
     const reduce = useReducedMotion();
@@ -161,6 +170,17 @@ export default function ImportsIndex({ imports }: { imports: ImportRow[] }) {
                                         </p>
                                     )}
                                 </div>
+                                {imp.can_retry && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRetry(imp.id)}
+                                        className="inline-flex items-center gap-1.5 text-xs text-accent-neon hover:text-accent-neon hover:bg-accent-neon/10 transition-colors px-2.5 py-1.5 rounded-xl ring-1 ring-accent-neon/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-surface"
+                                        aria-label={`Retry import ${imp.id}`}
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                                        Retry
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => handleDelete(imp.id)}

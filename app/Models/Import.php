@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $user_id
  * @property Bank $bank
  * @property string $original_filename
+ * @property string|null $stored_path
  * @property ImportStatus $status
  * @property string|null $failed_reason
  * @property int $transactions_count
@@ -32,6 +33,7 @@ class Import extends Model
         'user_id',
         'bank',
         'original_filename',
+        'stored_path',
         'status',
         'failed_reason',
         'transactions_count',

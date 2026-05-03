@@ -50,6 +50,7 @@ class ImportCsvAction
         $import = $user->imports()->create([
             'bank' => $resolvedBank,
             'original_filename' => $file->getClientOriginalName(),
+            'stored_path' => $path,
             'status' => ImportStatus::Pending,
         ]);
 

@@ -34,6 +34,9 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:10,1')
         ->name('imports.store');
     Route::delete('/imports/{import}', [ImportController::class, 'destroy'])->name('imports.destroy');
+    Route::post('/imports/{import}/retry', [ImportController::class, 'retry'])
+        ->middleware('throttle:10,1')
+        ->name('imports.retry');
 
     Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
     Route::post('/subscriptions/detect', [SubscriptionController::class, 'detect'])

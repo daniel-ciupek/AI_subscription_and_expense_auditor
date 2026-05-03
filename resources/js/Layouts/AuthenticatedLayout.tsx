@@ -7,6 +7,7 @@ import {
     User,
     LogOut,
     Sparkles,
+    Bell,
     LucideIcon,
 } from 'lucide-react';
 import { ToastContainer } from '@/Components/UI/Toast';
@@ -17,12 +18,14 @@ interface NavItem {
     href: string;
     icon: LucideIcon;
     routeName: string;
+    showBadge?: boolean;
 }
 
 const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
     { label: 'Imports', href: '/imports', icon: Upload, routeName: 'imports.*' },
     { label: 'Subscriptions', href: '/subscriptions', icon: Repeat, routeName: 'subscriptions.*' },
+    { label: 'Inbox', href: '/notifications', icon: Bell, routeName: 'notifications.*', showBadge: true },
     { label: 'Profile', href: '/profile', icon: User, routeName: 'profile.edit' },
 ];
 
@@ -38,7 +41,9 @@ export default function Authenticated({
     header,
     children,
 }: PropsWithChildren<{ header?: ReactNode }>) {
-    const user = usePage().props.auth.user;
+    const { auth } = usePage().props;
+    const user = auth.user;
+    const unreadCount = auth.unreadNotificationsCount ?? 0;
 
     const handleLogout = () => {
         router.post(route('logout'));
@@ -71,6 +76,7 @@ export default function Authenticated({
                         {navItems.map((item) => {
                             const active = isActive(item.routeName);
                             const Icon = item.icon;
+                            const showBadge = item.showBadge && unreadCount > 0;
                             return (
                                 <Link
                                     key={item.routeName}
@@ -85,7 +91,15 @@ export default function Authenticated({
                                     aria-current={active ? 'page' : undefined}
                                 >
                                     <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                                    <span>{item.label}</span>
+                                    <span className="flex-1">{item.label}</span>
+                                    {showBadge && (
+                                        <span
+                                            className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-semibold bg-accent-neon/20 text-accent-neon ring-1 ring-accent-neon/40 tabular-nums"
+                                            aria-label={`${unreadCount} unread notifications`}
+                                        >
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}
@@ -132,12 +146,13 @@ export default function Authenticated({
                     {navItems.map((item) => {
                         const active = isActive(item.routeName);
                         const Icon = item.icon;
+                        const showBadge = item.showBadge && unreadCount > 0;
                         return (
                             <Link
                                 key={item.routeName}
                                 href={item.href}
                                 className={cn(
-                                    'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-[10px] transition-all duration-200',
+                                    'relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-[10px] transition-all duration-200',
                                     'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated',
                                     active
                                         ? 'text-accent-neon'
@@ -145,7 +160,17 @@ export default function Authenticated({
                                 )}
                                 aria-current={active ? 'page' : undefined}
                             >
-                                <Icon className="h-5 w-5" aria-hidden="true" />
+                                <div className="relative">
+                                    <Icon className="h-5 w-5" aria-hidden="true" />
+                                    {showBadge && (
+                                        <span
+                                            className="absolute -top-1 -right-1.5 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full text-[9px] font-semibold bg-accent-neon text-bg-base tabular-nums"
+                                            aria-label={`${unreadCount} unread notifications`}
+                                        >
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </div>
                                 <span>{item.label}</span>
                             </Link>
                         );

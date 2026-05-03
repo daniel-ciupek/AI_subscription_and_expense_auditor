@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Foundation\Application;
@@ -52,6 +53,12 @@ Route::middleware('auth')->group(function () {
         ->name('subscriptions.confirm-duplicate');
     Route::post('/subscriptions/{subscription}/keep-separate', [SubscriptionController::class, 'keepSeparate'])
         ->name('subscriptions.keep-separate');
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.read-all');
 });
 
 require __DIR__.'/auth.php';

@@ -93,6 +93,11 @@ class DetectSubscriptionsAction
      * billed at the same monthly cadence and similar amount). The newer row
      * gets `is_duplicate_of_id` pointing back to the older one so the UI can
      * highlight just one of them as the canonical entry.
+     *
+     * Subscriptions that the user has already resolved manually are skipped:
+     * a `confirmed_duplicate` resolution keeps `is_duplicate_of_id` as-is, a
+     * `kept_separate` resolution leaves the canonical state alone so the
+     * detector can't re-flag it on the next run.
      */
     private function markDuplicates(User $user): void
     {
@@ -114,6 +119,10 @@ class DetectSubscriptionsAction
 
             for ($i = 0; $i < $count; $i++) {
                 for ($j = $i + 1; $j < $count; $j++) {
+                    if ($list[$j]->duplicate_resolution !== null) {
+                        continue;
+                    }
+
                     if ($this->areLikelyDuplicates($list[$i], $list[$j])) {
                         $list[$j]->update(['is_duplicate_of_id' => $list[$i]->id]);
                     }

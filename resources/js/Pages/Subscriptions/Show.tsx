@@ -1,12 +1,15 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarClock,
     AlertTriangle,
     Receipt,
     TrendingDown,
+    Check,
+    GitMerge,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { Button } from '@/Components/UI/Button';
 import {
     Bar,
     BarChart,
@@ -28,6 +31,7 @@ interface SubscriptionDetail {
     next_expected_charge_at: string | null;
     category: { name: string; slug: string; color: string } | null;
     is_duplicate_of: { id: number; name: string } | null;
+    duplicate_resolution: 'confirmed_duplicate' | 'kept_separate' | null;
 }
 
 interface Charge {
@@ -177,7 +181,7 @@ export default function SubscriptionShow({
                                 aria-hidden="true"
                             />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-semibold text-text-primary">
                                 Possible duplicate
                             </h3>
@@ -194,6 +198,79 @@ export default function SubscriptionShow({
                                 </Link>
                                 . Same billing cadence and similar amount, possibly
                                 the same merchant under a different statement name.
+                            </p>
+                            {subscription.duplicate_resolution ===
+                                'confirmed_duplicate' ? (
+                                <p className="mt-3 text-xs inline-flex items-center gap-1.5 text-state-warning">
+                                    <Check
+                                        className="h-3.5 w-3.5"
+                                        aria-hidden="true"
+                                    />
+                                    Marked as the same merchant. Detection will
+                                    keep this flag.
+                                </p>
+                            ) : (
+                                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={() =>
+                                            router.post(
+                                                route(
+                                                    'subscriptions.confirm-duplicate',
+                                                    subscription.id,
+                                                ),
+                                                {},
+                                                { preserveScroll: true },
+                                            )
+                                        }
+                                    >
+                                        <GitMerge
+                                            className="h-3.5 w-3.5"
+                                            aria-hidden="true"
+                                        />
+                                        Mark as same
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                            router.post(
+                                                route(
+                                                    'subscriptions.keep-separate',
+                                                    subscription.id,
+                                                ),
+                                                {},
+                                                { preserveScroll: true },
+                                            )
+                                        }
+                                    >
+                                        Keep separate
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </Card>
+            )}
+
+            {subscription.duplicate_resolution === 'kept_separate' && (
+                <Card className="mb-6 ring-1 ring-state-success/30 bg-state-success/5">
+                    <div className="flex items-start gap-3">
+                        <div className="rounded-xl bg-state-success/10 p-2 ring-1 ring-state-success/30 shrink-0">
+                            <Check
+                                className="h-5 w-5 text-state-success"
+                                aria-hidden="true"
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-text-primary">
+                                Kept as a separate subscription
+                            </h3>
+                            <p className="text-xs text-text-secondary mt-1">
+                                You marked this subscription as distinct from any
+                                near-matches. Detection will leave it alone on
+                                future runs.
                             </p>
                         </div>
                     </div>

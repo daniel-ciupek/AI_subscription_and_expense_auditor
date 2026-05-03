@@ -35,7 +35,9 @@ testowalność i działający end-to-end flow.
 - **Wykrywanie duplikatów subskrypcji** — flaguje subskrypcje dzielące
   meaningful token, billing cycle i kwotę w obrębie ±15%
   (np. `NETFLIX.COM` vs `NETFLIX EU`) tak żeby headline monthly total nie
-  liczył się dwa razy.
+  liczył się dwa razy. User może rozstrzygnąć każdy duplikat ręcznie:
+  **Mark as same** (potwierdza, detector zachowa flagę) lub **Keep separate**
+  (czyści flagę i blokuje detektor przed jej ponownym ustawieniem).
 - **Strona detalu subskrypcji** — bar chart z historią obciążeń, statystyki
   (koszt miesięczny / total spent / liczba obciążeń / średnia), lista
   wszystkich transakcji powiązanych z merchantem, link do oryginału jeśli
@@ -63,7 +65,7 @@ testowalność i działający end-to-end flow.
 - **AI:** Groq (`llama-3.3-70b-versatile`) lub DeepSeek (`deepseek-chat`) — OpenAI-compatible chat completions
   z wymiennym `FakeAiCategorizer` do dev/CI bez kluczy
 - **Infra:** Laravel Sail (php-fpm 8.5 / pgsql / redis / mailpit / queue worker), Docker Compose
-- **Quality gates:** Pest (140 testów), Larastan level 8, Pint, TypeScript strict mode
+- **Quality gates:** Pest (146 testów), Larastan level 8, Pint, TypeScript strict mode
 
 ## Quickstart
 
@@ -237,7 +239,7 @@ ProcessImportJob (parse + persist) ─┐
 ## Testowanie
 
 ```bash
-./vendor/bin/pest                  # 140 testów (feature + unit)
+./vendor/bin/pest                  # 146 testów (feature + unit)
 ./vendor/bin/phpstan analyse       # Larastan level 8
 ./vendor/bin/pint --test           # Style check
 npm run typecheck                  # TypeScript strict

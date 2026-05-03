@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\DuplicateResolution;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface $last_charge_at
  * @property CarbonInterface|null $next_expected_charge_at
  * @property int|null $is_duplicate_of_id
+ * @property DuplicateResolution|null $duplicate_resolution
  */
 class Subscription extends Model
 {
@@ -33,6 +35,7 @@ class Subscription extends Model
         'last_charge_at',
         'next_expected_charge_at',
         'is_duplicate_of_id',
+        'duplicate_resolution',
     ];
 
     /**
@@ -45,6 +48,7 @@ class Subscription extends Model
             'billing_cycle_days' => 'integer',
             'last_charge_at' => 'date',
             'next_expected_charge_at' => 'date',
+            'duplicate_resolution' => DuplicateResolution::class,
         ];
     }
 

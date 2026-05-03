@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\DetectSubscriptionsAction;
+use App\Enums\DuplicateResolution;
 use App\Models\Category;
 use App\Models\Import;
 use App\Models\Subscription;
@@ -205,4 +206,58 @@ it('inherits the most common category from the underlying transactions', functio
     (new DetectSubscriptionsAction)->handle($this->user);
 
     expect(Subscription::first()->category_id)->toBe($subs->id);
+});
+
+it('respects a kept_separate resolution and does not re-flag the subscription', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([100, 70, 40] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX.COM 49.99 PLN', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+    foreach ([95, 65, 35] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX EU SUBSCRIPTION', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    // First detection flagged the second one as duplicate. User says: keep separate.
+    $second = Subscription::orderBy('id')->skip(1)->first();
+    $second->update([
+        'is_duplicate_of_id' => null,
+        'duplicate_resolution' => DuplicateResolution::KeptSeparate,
+    ]);
+
+    // Re-run detection. The kept_separate resolution must protect the canonical state.
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    $second->refresh();
+    expect($second->is_duplicate_of_id)->toBeNull();
+    expect($second->duplicate_resolution)->toBe(DuplicateResolution::KeptSeparate);
+});
+
+it('respects a confirmed_duplicate resolution and leaves the flag in place', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([100, 70, 40] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX.COM 49.99 PLN', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+    foreach ([95, 65, 35] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX EU SUBSCRIPTION', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    $first = Subscription::orderBy('id')->first();
+    $second = Subscription::orderBy('id')->skip(1)->first();
+    $second->update([
+        'duplicate_resolution' => DuplicateResolution::ConfirmedDuplicate,
+    ]);
+
+    // Re-run. The flag should be untouched because user confirmed it.
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    $second->refresh();
+    expect($second->is_duplicate_of_id)->toBe($first->id);
+    expect($second->duplicate_resolution)
+        ->toBe(DuplicateResolution::ConfirmedDuplicate);
 });

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\DuplicateResolution;
 use App\Jobs\DetectSubscriptionsJob;
 use App\Models\Category;
 use App\Models\Import;
@@ -298,4 +299,108 @@ it('does not leak another user\'s subscriptions', function () {
             fn ($page) => $page->component('Subscriptions/Index')
                 ->where('subscriptions', []),
         );
+});
+
+it('confirms a flagged duplicate and persists the resolution', function () {
+    $user = User::factory()->create();
+    $original = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'NETFLIX EU',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+    $duplicate = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'NETFLIX.COM',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-15',
+        'next_expected_charge_at' => '2026-05-15',
+        'is_duplicate_of_id' => $original->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('subscriptions.confirm-duplicate', $duplicate))
+        ->assertRedirect(route('subscriptions.show', $duplicate))
+        ->assertSessionHas('flash');
+
+    $duplicate->refresh();
+    expect($duplicate->is_duplicate_of_id)->toBe($original->id);
+    expect($duplicate->duplicate_resolution)
+        ->toBe(DuplicateResolution::ConfirmedDuplicate);
+});
+
+it('rejects confirm-duplicate when the subscription is not flagged', function () {
+    $user = User::factory()->create();
+    $sub = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'STANDALONE',
+        'amount' => '29.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('subscriptions.confirm-duplicate', $sub))
+        ->assertRedirect(route('subscriptions.show', $sub));
+
+    $sub->refresh();
+    expect($sub->duplicate_resolution)->toBeNull();
+});
+
+it('keeps a flagged subscription separate by clearing the flag and remembering the choice', function () {
+    $user = User::factory()->create();
+    $original = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'SPOTIFY',
+        'amount' => '19.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+    $maybeDup = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'SPOTIFY FAMILY',
+        'amount' => '21.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-10',
+        'next_expected_charge_at' => '2026-05-10',
+        'is_duplicate_of_id' => $original->id,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('subscriptions.keep-separate', $maybeDup))
+        ->assertRedirect(route('subscriptions.show', $maybeDup));
+
+    $maybeDup->refresh();
+    expect($maybeDup->is_duplicate_of_id)->toBeNull();
+    expect($maybeDup->duplicate_resolution)
+        ->toBe(DuplicateResolution::KeptSeparate);
+});
+
+it('returns 403 when one user tries to resolve duplicates on another user\'s subscription', function () {
+    $alice = User::factory()->create();
+    $bob = User::factory()->create();
+    $bobSub = Subscription::create([
+        'user_id' => $bob->id,
+        'name' => 'BOBs HBO',
+        'amount' => '29.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+        'is_duplicate_of_id' => null,
+    ]);
+
+    $this->actingAs($alice)
+        ->post(route('subscriptions.keep-separate', $bobSub))
+        ->assertForbidden();
 });

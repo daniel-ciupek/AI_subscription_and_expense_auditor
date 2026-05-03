@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\DuplicateResolution;
 use App\Jobs\DetectSubscriptionsJob;
 use App\Models\Subscription;
 use App\Support\SubscriptionMonthlyCost;
@@ -143,6 +144,7 @@ class SubscriptionController extends Controller
                     'color' => $subscription->category->color,
                 ],
                 'is_duplicate_of' => $duplicateOf,
+                'duplicate_resolution' => $subscription->duplicate_resolution?->value,
             ],
             'monthlyCost' => SubscriptionMonthlyCost::forCycle(
                 (float) $subscription->amount,
@@ -162,5 +164,53 @@ class SubscriptionController extends Controller
                 'counterparty' => $tx->counterparty,
             ])->all(),
         ]);
+    }
+
+    public function confirmDuplicate(Request $request, Subscription $subscription): RedirectResponse
+    {
+        $user = $request->user();
+        if ($user === null || $subscription->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($subscription->is_duplicate_of_id === null) {
+            return redirect()
+                ->route('subscriptions.show', $subscription)
+                ->with('flash', [
+                    'type' => 'error',
+                    'message' => 'This subscription is not flagged as a duplicate.',
+                ]);
+        }
+
+        $subscription->update([
+            'duplicate_resolution' => DuplicateResolution::ConfirmedDuplicate,
+        ]);
+
+        return redirect()
+            ->route('subscriptions.show', $subscription)
+            ->with('flash', [
+                'type' => 'success',
+                'message' => 'Marked as the same merchant. Detection will keep this flag.',
+            ]);
+    }
+
+    public function keepSeparate(Request $request, Subscription $subscription): RedirectResponse
+    {
+        $user = $request->user();
+        if ($user === null || $subscription->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $subscription->update([
+            'is_duplicate_of_id' => null,
+            'duplicate_resolution' => DuplicateResolution::KeptSeparate,
+        ]);
+
+        return redirect()
+            ->route('subscriptions.show', $subscription)
+            ->with('flash', [
+                'type' => 'success',
+                'message' => 'Kept as a separate subscription. Detection will not re-flag it.',
+            ]);
     }
 }

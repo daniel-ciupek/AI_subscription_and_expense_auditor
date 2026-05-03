@@ -1,68 +1,88 @@
-# AI-Driven Subscription & Expense Auditor
+# Audytor Subskrypcji i Wydatków napędzany AI
 
-A self-hosted personal-finance app that ingests Polish bank CSV/XLS statements,
-auto-categorizes transactions with an LLM, and surfaces recurring subscriptions
-(including likely duplicates you may be paying twice for).
+Self-hostowana aplikacja do osobistych finansów: wczytuje wyciągi bankowe
+(CSV/XLS) z polskich banków, automatycznie kategoryzuje transakcje przy pomocy
+LLM i wykrywa powtarzające się subskrypcje — w tym prawdopodobne duplikaty,
+za które możesz płacić dwa razy.
 
-Built as a portfolio project — the focus is on clean architecture, testability,
-and shipping a fully working flow end-to-end.
+Zbudowane jako projekt portfolio — priorytet to czysta architektura,
+testowalność i działający end-to-end flow.
 
-> _Screenshots placeholder — drop final renders in `docs/img/` and link them here:_
-> - `docs/img/dashboard.png` — dashboard with insights, area chart, donut, top subs
-> - `docs/img/subscriptions.png` — subscription list with duplicate flagging
-> - `docs/img/import.gif` — drag-and-drop CSV → categorization → dashboard
+> _Placeholder na zrzuty ekranu — finalne rendery wrzuć do `docs/img/` i podlinkuj tutaj:_
+> - `docs/img/dashboard.png` — dashboard z insightami, area chart, donut, top subs
+> - `docs/img/subscriptions.png` — lista subskrypcji z flagą duplikatów
+> - `docs/img/subscription-detail.png` — strona detalu subskrypcji z bar chartem historii
+> - `docs/img/import.gif` — drag-and-drop CSV → kategoryzacja → dashboard
 
 ---
 
-## Features
+## Funkcje
 
-- **Multi-bank CSV/XLS import** — parsers for **mBank, PKO BP, ING, Santander, BGŻ BNP Paribas**.
-  Bank auto-detected from the file headers; manual bank dropdown as fallback.
-- **Idempotent imports** — re-uploading the same statement inserts zero duplicate rows
-  thanks to a deterministic per-row hash (`sha256(user_id|posted_at|amount|description|balance)`).
-- **AI categorization with cost controls** — Groq (Llama 3.3 70B) or DeepSeek (`deepseek-chat`) via OpenAI-compatible
-  HTTP, batched 20 transactions per prompt, JSON-schema validated to block hallucinated
-  slugs. Redis cache keyed on a normalized merchant fingerprint with prompt-version
-  invalidation, 30-day TTL.
-- **Rule-based subscription detection** — groups expenses by normalized merchant name,
-  promotes a group to a `Subscription` when it shows ≥2 charges 25–35 days apart
-  with consistent amounts (±10%).
-- **Duplicate-subscription detection** — flags subscriptions that share a meaningful
-  token, billing cycle, and amount within ±15% (e.g. `NETFLIX.COM` vs `NETFLIX EU`)
-  so the headline monthly total isn't double-counted.
-- **Dashboard analytics** — 90-day spending area chart, category-breakdown donut,
-  top-5 subscriptions widget, AI insights alert (duplicates + spending spikes).
-- **Async pipeline** — every CSV is parsed in a queue job, then a `Bus::batch` of
-  categorize jobs, then `DetectSubscriptionsJob` runs once the batch finishes.
-- **PII at rest is encrypted** — `transactions.description` and `counterparty` use
-  Laravel's `encrypted` cast (AES-256 via `APP_KEY`).
+- **Import wyciągów z 5 banków** — parsery dla **mBank, PKO BP, ING, Santander, BGŻ BNP Paribas**.
+  Bank rozpoznawany automatycznie po nagłówkach pliku; manualny dropdown jako
+  fallback gdy detekcja zawiedzie.
+- **Idempotentny import** — ponowne wgranie tego samego wyciągu nie tworzy
+  duplikatów dzięki deterministycznemu hashowi
+  `sha256(user_id|posted_at|amount|description|balance)`.
+- **Kategoryzacja AI z kontrolą kosztów** — Groq (Llama 3.3 70B) lub DeepSeek
+  (`deepseek-chat`) przez OpenAI-compatible HTTP, batch 20 transakcji na
+  prompt, walidacja schematu JSON żeby zablokować halucynowane slugi. Redis
+  cache kluczowany po znormalizowanym fingerprincie kupca z prompt-version
+  invalidation, TTL 30 dni.
+- **Rule-based wykrywanie subskrypcji** — grupuje wydatki po znormalizowanej
+  nazwie kupca, awansuje grupę do `Subscription` gdy widać ≥2 obciążenia
+  25–35 dni od siebie z spójną kwotą (±10%).
+- **Wykrywanie duplikatów subskrypcji** — flaguje subskrypcje dzielące
+  meaningful token, billing cycle i kwotę w obrębie ±15%
+  (np. `NETFLIX.COM` vs `NETFLIX EU`) tak żeby headline monthly total nie
+  liczył się dwa razy.
+- **Strona detalu subskrypcji** — bar chart z historią obciążeń, statystyki
+  (koszt miesięczny / total spent / liczba obciążeń / średnia), lista
+  wszystkich transakcji powiązanych z merchantem, link do oryginału jeśli
+  detektor sflagował tę subskrypcję jako duplikat.
+- **Modal AI Duplicate Alert** — Framer Motion entrance z animowanym gradient
+  ringiem i floating sparkles, "Review duplicates" CTA scrolluje do
+  flagowanych kart, dismiss persystowany w localStorage tak żeby modal
+  pojawiał się ponownie tylko przy nowym zestawie duplikatów.
+- **Dashboard analityczny** — area chart wydatków 90-dniowych, donut z
+  breakdownem kategorii, widget top-5 subskrypcji, AI insights alert
+  (duplikaty + skoki wydatków vs poprzedni okres).
+- **Async pipeline** — każdy CSV parsowany w queue jobie, potem `Bus::batch`
+  jobów kategoryzacji, na końcu `DetectSubscriptionsJob` uruchamia się gdy
+  batch się zakończy.
+- **Szyfrowanie PII at-rest** — `transactions.description` i `counterparty`
+  używają Laravel `encrypted` cast (AES-256 przez `APP_KEY`).
+- **Dostępność (a11y)** — focus-visible rings na wszystkich interaktywnych
+  elementach, respektowanie `prefers-reduced-motion`, semantyczny HTML,
+  kontrast WCAG AA, pełna nawigacja klawiaturowa.
 
 ## Stack
 
 - **Backend:** Laravel 13, PHP 8.5, PostgreSQL 18, Redis 8
 - **Frontend:** Inertia.js + React 18 + TypeScript, Tailwind CSS, Recharts, Framer Motion, Lucide
-- **AI:** Groq (`llama-3.3-70b-versatile`) or DeepSeek (`deepseek-chat`) — OpenAI-compatible chat completions
-  with a swappable `FakeAiCategorizer` for offline dev/CI
+- **AI:** Groq (`llama-3.3-70b-versatile`) lub DeepSeek (`deepseek-chat`) — OpenAI-compatible chat completions
+  z wymiennym `FakeAiCategorizer` do dev/CI bez kluczy
 - **Infra:** Laravel Sail (php-fpm 8.5 / pgsql / redis / mailpit / queue worker), Docker Compose
-- **Quality gates:** Pest (126 tests), Larastan level 8, Pint, ESLint, TypeScript strict mode
+- **Quality gates:** Pest (140 testów), Larastan level 8, Pint, TypeScript strict mode
 
 ## Quickstart
 
-Requirements: Docker, Docker Compose. No need for a local PHP/Node toolchain to run.
+Wymagania: Docker, Docker Compose. Lokalny PHP/Node toolchain niepotrzebny do
+uruchomienia.
 
 ```bash
 git clone https://github.com/daniel-ciupek/AI_subscription_and_expense_auditor.git
 cd AI_subscription_and_expense_auditor
 cp .env.example .env
 
-# Install PHP deps (one-off, uses a tiny throwaway container if you don't have PHP locally)
+# Instalacja zależności PHP (raz, krótkotrwały kontener composer jeśli nie masz PHP lokalnie)
 docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html \
     composer:latest composer install --ignore-platform-reqs --no-scripts
 
-# Bring the stack up
+# Start stacka
 ./vendor/bin/sail up -d
 
-# Generate APP_KEY, run migrations, seed demo data
+# APP_KEY, migracje, dane demo
 ./vendor/bin/sail artisan key:generate
 ./vendor/bin/sail artisan migrate
 ./vendor/bin/sail artisan db:seed --class=DemoSeeder
@@ -72,25 +92,26 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/htm
 ./vendor/bin/sail npm run dev
 ```
 
-Open <http://localhost> and log in with:
+Wejdź na <http://localhost> i zaloguj się:
 
 - **Email:** `demo@example.com`
-- **Password:** `demo1234`
+- **Hasło:** `demo1234`
 
-The demo account is pre-loaded with ~140 realistic transactions across 120 days,
-6 detected subscriptions (one is intentionally a near-duplicate to demonstrate
-the alerting path), categorized using the deterministic `FakeAiCategorizer`.
+Konto demo ma wstępnie załadowane ~140 realistycznych transakcji z 120 dni,
+6 wykrytych subskrypcji (jedna celowo jako near-duplicate, żeby pokazać
+ścieżkę alertu), skategoryzowanych przez deterministyczny `FakeAiCategorizer`.
 
-## Switching to real AI categorization
+## Przełączanie na realne AI
 
-By default the app runs `AI_DRIVER=fake` so it works without paid credentials.
-Two production providers are wired in, both speak the OpenAI-compatible chat
-completions protocol so the request shape and validation are identical.
+Domyślnie aplikacja chodzi na `AI_DRIVER=fake` więc działa bez płatnych
+credentials. Wpięte są dwa produkcyjne drivery — oba mówią protokołem
+OpenAI-compatible chat completions, więc shape requestów i walidacja są
+identyczne.
 
 **Groq (Llama 3.3 70B):**
 
-1. Grab a key from <https://console.groq.com>.
-2. Set in `.env`:
+1. Pobierz klucz z <https://console.groq.com>.
+2. Ustaw w `.env`:
    ```env
    AI_DRIVER=groq
    GROQ_API_KEY=gsk_...
@@ -98,130 +119,150 @@ completions protocol so the request shape and validation are identical.
 
 **DeepSeek (`deepseek-chat`):**
 
-1. Grab a key from <https://platform.deepseek.com/api_keys>.
-2. Set in `.env`:
+1. Pobierz klucz z <https://platform.deepseek.com/api_keys>.
+2. Ustaw w `.env`:
    ```env
    AI_DRIVER=deepseek
    DEEPSEEK_API_KEY=sk-...
    ```
 
-After either change, restart the queue worker so the binding picks up:
-`./vendor/bin/sail restart queue`. Previously-cached categorizations stay
-valid because each driver carries its own prompt version in the cache key,
-so providers don't poison one another's cached answers.
+Po każdej zmianie zrestartuj queue worker żeby binding podchwycił:
+`./vendor/bin/sail restart queue`. Wcześniej zacache'owane kategoryzacje
+pozostają ważne, bo każdy driver niesie własną prompt version w cache key —
+providerzy nie zatruwają sobie nawzajem cache.
 
-## Project structure
+## Struktura projektu
 
 ```
 app/
-├── Actions/                 — single-responsibility business actions
+├── Actions/                 — akcje biznesowe (single responsibility)
 │   ├── ImportCsvAction.php
-│   └── DetectSubscriptionsAction.php   # rule-based + duplicate flagging
-├── Contracts/               — interfaces enabling Strategy pattern
+│   └── DetectSubscriptionsAction.php   # rule-based + flagowanie duplikatów
+├── Contracts/               — interfejsy dla wzorca Strategii
 │   ├── AiCategorizerInterface.php
 │   └── CsvParserInterface.php
-├── Http/Controllers/        — thin: validate, authorize, delegate, render
+├── Http/Controllers/        — cienkie: walidacja, autoryzacja, delegacja, render
 ├── Jobs/                    — async pipeline
 │   ├── ProcessImportJob.php
-│   ├── CategorizeTransactionsJob.php   # batched + Redis-cached
-│   └── DetectSubscriptionsJob.php      # runs after categorize batch
+│   ├── CategorizeTransactionsJob.php   # batchowane + Redis cache
+│   └── DetectSubscriptionsJob.php      # po zakończeniu categorize batcha
+├── Policies/                — autoryzacja per-resource (ImportPolicy, SubscriptionPolicy)
 ├── Services/
 │   ├── AiCategorizers/      — FakeAiCategorizer, GroqAiCategorizer, DeepseekAiCategorizer
-│   ├── Parsers/             — 5 bank parsers + StatementReader (CSV/XLS/ODS)
-│   └── BankDetector.php     # auto-detect from headers
+│   ├── Parsers/             — 5 parserów banków + StatementReader (CSV/XLS/ODS)
+│   └── BankDetector.php     # auto-detect po nagłówkach
 └── Support/
-    ├── TransactionNormalizer.php       # merchant fingerprinting
+    ├── TransactionNormalizer.php       # fingerprinting kupca
     └── SubscriptionMonthlyCost.php
 
 resources/js/
-├── Components/Dashboard/    — Recharts widgets (donut, area, top subs, alerts)
-├── Pages/                   — Inertia pages
+├── Components/Dashboard/    — Recharts widgety (donut, area, top subs, alerts)
+├── Components/Subscriptions/ — DuplicateAlertModal (AI alert z Framer Motion)
+├── Components/UI/           — Button, Card, Modal, EmptyState, Toast, FormField, ...
+├── Pages/                   — strony Inertia (Dashboard, Imports, Subscriptions/Index + Show, ...)
 └── Layouts/
 
 database/
-├── migrations/              — schema (users, imports, transactions, categories, subscriptions, ai_categorizations)
+├── migrations/              — schemat (users, imports, transactions, categories, subscriptions, ai_categorizations)
 └── seeders/
     ├── CategorySeeder.php
-    └── DemoSeeder.php       # idempotent demo dataset
+    └── DemoSeeder.php       # idempotentny dataset demo
 ```
 
-## Architecture highlights
+## Highlighty architektoniczne
 
-### Strategy pattern × 2
+### Wzorzec Strategii × 2
 
-- **`AiCategorizerInterface`** has three implementations: `FakeAiCategorizer`
-  (deterministic keyword matching, used in tests + `AI_DRIVER=fake`),
-  `GroqAiCategorizer` (HTTP Groq client) and `DeepseekAiCategorizer` (HTTP
-  DeepSeek client). Both production drivers retry with exponential backoff,
-  validate the JSON response against a strict schema, and fall back to `other`
-  rather than letting hallucinated slugs reach the database.
-- **`CsvParserInterface`** has one implementation per supported bank.
-  `BankDetector` matches the file's header row against each parser's
-  signature; on a tie/miss the import form's bank dropdown is the fallback.
+- **`AiCategorizerInterface`** ma trzy implementacje: `FakeAiCategorizer`
+  (deterministyczne keyword matching, używane w testach + `AI_DRIVER=fake`),
+  `GroqAiCategorizer` (HTTP klient Groq) i `DeepseekAiCategorizer` (HTTP
+  klient DeepSeek). Oba produkcyjne drivery retryują z exponential backoff,
+  walidują JSON odpowiedź względem strict schema i fallbackują do `other`
+  zamiast pozwolić halucynowanym slugom dotrzeć do bazy.
+- **`CsvParserInterface`** ma jedną implementację per bank. `BankDetector`
+  matchuje header row pliku do sygnatury każdego parsera; przy remisie/braku
+  matcha dropdown banku w form imports służy jako fallback.
 
 ### Async pipeline
 
 ```
 ProcessImportJob (parse + persist) ─┐
                                     │
-  Bus::batch([                      │   each chunk = up to 20 transaction IDs
-    CategorizeTransactionsJob,      ◄── per-tx Redis cache (sha256 of normalized
-    CategorizeTransactionsJob,      │   description + amount sign), 30-day TTL,
-    ...                             │   invalidated automatically on prompt
-  ])->then(DetectSubscriptionsJob)  │   version bump
+  Bus::batch([                      │   każdy chunk = do 20 transaction ID
+    CategorizeTransactionsJob,      ◄── per-tx Redis cache (sha256 znormalizowanego
+    CategorizeTransactionsJob,      │   description + sign kwoty), TTL 30 dni,
+    ...                             │   automatycznie unieważniany przy zmianie
+  ])->then(DetectSubscriptionsJob)  │   prompt version
 ```
 
-### Idempotency at every boundary
+### Idempotencja na każdej granicy
 
-- **Imports:** `firstOrCreate` keyed on `(user_id, hash)` — re-uploading the
-  same statement inserts zero new rows. The post-import pipeline only
-  dispatches if at least one row was actually inserted.
-- **Detection:** `updateOrCreate` keyed on `(user_id, name, billing_cycle_days)`.
-  Re-running the detector never duplicates a subscription.
-- **Demo seeder:** wipes the demo user's data first so re-running is safe.
+- **Imports:** `firstOrCreate` keyed na `(user_id, hash)` — re-upload tego
+  samego wyciągu wstawia zero nowych wierszy. Pipeline post-importowy
+  uruchamia się tylko jeśli faktycznie wstawiono ≥1 wiersz.
+- **Detekcja:** `updateOrCreate` keyed na `(user_id, name, billing_cycle_days)`.
+  Ponowne uruchomienie detektora nigdy nie duplikuje subskrypcji.
+- **DemoSeeder:** wycina dane demo usera przed seedowaniem, więc re-run jest
+  bezpieczny.
 
-### Cost control on AI calls
+### Kontrola kosztów AI
 
-- **Cache** — normalize description (lowercase, strip digits/punctuation,
-  collapse whitespace), hash it with the amount sign. Recurring merchants
-  hit cache after the first occurrence.
-- **Batching** — 20 transactions per prompt cuts cost ~20×.
-- **Versioning** — `ai_prompt_version` is stored on the cached value AND on
-  the audit row. Bumping the prompt invalidates stale cache entries without
-  flushing Redis.
-- **Schema validation** — Laravel `Validator` with an `in:` slug allow-list
-  on the LLM response. Schema violation → fall back to `other`, never let
-  invented categories reach the dashboard.
+- **Cache** — normalizuj description (lowercase, usuń cyfry/interpunkcję,
+  zwiń whitespace), hashuj razem ze znakiem kwoty. Powtarzalni kupcy hitują
+  cache po pierwszym wystąpieniu.
+- **Batching** — 20 transakcji per prompt zmniejsza koszt API ~20×.
+- **Wersjonowanie** — `ai_prompt_version` zapisany na zacache'owanej wartości
+  ORAZ na audit row. Bump promptu unieważnia stare cache entries bez
+  flushowania Redisa.
+- **Walidacja schematu** — Laravel `Validator` z allow-listą `in:` na slugach
+  w odpowiedzi LLM. Schema violation → fallback do `other`, nigdy nie
+  pozwoli wymyślonym kategoriom dotrzeć do dashboardu.
 
-## Testing
+### Dostępność (a11y)
+
+- **Focus rings** — każdy interaktywny element ma
+  `focus-visible:ring-2 ring-accent-neon` (lub `ring-state-danger` przy
+  destrukcyjnych akcjach). Bez `focus:` (myszka), tylko `focus-visible:`
+  (klawiatura).
+- **`prefers-reduced-motion`** — wszystkie animacje Framer Motion czytają
+  `useReducedMotion()` i pomijają entrance/exit gdy user preferuje
+  zredukowany ruch. Dekoracyjne animacje CSS (mesh shift, sparkles, gradient
+  pulse) opakowane w `motion-safe:` prefix.
+- **Semantyka** — `<button>` zamiast `<div onClick>`, `<nav>`/`<main>`,
+  `aria-label` na ikonowych przyciskach, `role="dialog"` + `aria-modal` na
+  modalach, `aria-live="polite"` na toastach.
+- **Kontrast WCAG AA** — text-primary `#FAFAFA` na bg-base `#0A0A0F` daje
+  >15:1; secondary `#A1A1AA` daje >7:1.
+
+## Testowanie
 
 ```bash
-./vendor/bin/pest                  # 126 feature + unit tests
+./vendor/bin/pest                  # 140 testów (feature + unit)
 ./vendor/bin/phpstan analyse       # Larastan level 8
 ./vendor/bin/pint --test           # Style check
 npm run typecheck                  # TypeScript strict
 ```
 
-Pest runs against in-memory SQLite locally (~5s) and PostgreSQL inside Sail
-for parity with production.
+Pest chodzi lokalnie na in-memory SQLite (~5s) i na PostgreSQL w Sailu dla
+parity z produkcją.
 
-## Banks supported
+## Wspierane banki
 
-| Bank             | Header signature snippet                            | Real-data tested |
-|------------------|-----------------------------------------------------|------------------|
-| mBank            | `#data operacji`                                    | Synthetic fixtures |
-| PKO BP           | `typ transakcji + opis transakcji`                  | Synthetic fixtures |
-| ING              | `dane kontrahenta`                                  | Synthetic fixtures |
-| Santander        | `opis nadawcy/odbiorcy`                             | Synthetic fixtures |
-| BGŻ BNP Paribas  | `data zaksięgowania + numer rachunku kontrahenta`   | ✅ Author's account |
+| Bank             | Sygnatura nagłówków                                 | Testowane na realnych danych |
+|------------------|-----------------------------------------------------|------------------------------|
+| mBank            | `#data operacji`                                    | Syntetyczne fixture'y |
+| PKO BP           | `typ transakcji + opis transakcji`                  | Syntetyczne fixture'y |
+| ING              | `dane kontrahenta`                                  | Syntetyczne fixture'y |
+| Santander        | `opis nadawcy/odbiorcy`                             | Syntetyczne fixture'y |
+| BGŻ BNP Paribas  | `data zaksięgowania + numer rachunku kontrahenta`   | ✅ Konto autora |
 
-Adding a sixth bank = one `CsvParserInterface` implementation + a header
-signature + a fixture-driven test. No other code changes.
+Dodanie szóstego banku = jedna implementacja `CsvParserInterface` + sygnatura
+nagłówków + test napędzany fixture'em. Żadne inne zmiany niepotrzebne.
 
-## License
+## Licencja
 
-MIT — see `LICENSE`.
+MIT — patrz `LICENSE`.
 
-## Author
+## Autor
 
-Built by [Daniel Ciupek](https://github.com/daniel-ciupek).
+Zbudowane przez [Daniela Ciupka](https://github.com/daniel-ciupek).

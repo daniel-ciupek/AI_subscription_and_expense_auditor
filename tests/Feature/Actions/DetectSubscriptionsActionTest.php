@@ -93,12 +93,13 @@ it('rejects groups with inconsistent amounts', function () {
     expect(Subscription::count())->toBe(0);
 });
 
-it('rejects groups whose cycle is outside the monthly window', function () {
+it('rejects groups whose median cycle does not fall in any accepted window', function () {
     $today = CarbonImmutable::now();
 
-    // Weekly grocery — too short.
-    foreach ([21, 14, 7] as $daysAgo) {
-        makeTx($this->user->id, $this->import->id, 'LIDL', '-100.00', $today->subDays($daysAgo)->toDateString());
+    // ~50-day cycle — sits between monthly (25-35) and quarterly (85-95)
+    // windows, so we treat it as noise rather than a subscription.
+    foreach ([150, 100, 50] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'IRREGULAR', '-100.00', $today->subDays($daysAgo)->toDateString());
     }
 
     expect((new DetectSubscriptionsAction)->handle($this->user))->toBe([]);
@@ -136,7 +137,9 @@ it('ignores income transactions', function () {
 
 it('ignores transactions older than the lookback window', function () {
     $today = CarbonImmutable::now();
-    foreach ([400, 370, 340] as $daysAgo) {
+    // Lookback is 400d so go further back than that; 30-day cadence would
+    // otherwise happily promote these to a monthly subscription.
+    foreach ([500, 470, 440] as $daysAgo) {
         makeTx($this->user->id, $this->import->id, 'NETFLIX', '-49.99', $today->subDays($daysAgo)->toDateString());
     }
 
@@ -233,6 +236,85 @@ it('respects a kept_separate resolution and does not re-flag the subscription', 
     $second->refresh();
     expect($second->is_duplicate_of_id)->toBeNull();
     expect($second->duplicate_resolution)->toBe(DuplicateResolution::KeptSeparate);
+});
+
+it('detects a weekly subscription (7-day cadence)', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([28, 21, 14, 7] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'WEEKLY MEAL KIT', '-49.00', $today->subDays($daysAgo)->toDateString());
+    }
+
+    $detected = (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect($detected)->toHaveCount(1);
+    $sub = Subscription::first();
+    expect($sub->billing_cycle_days)->toBe(7);
+    expect($sub->name)->toBe('WEEKLY MEAL KIT');
+});
+
+it('detects a biweekly subscription (14-day cadence)', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([56, 42, 28, 14] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'PAYPAL EVERY OTHER WEEK', '-19.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    $detected = (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect($detected)->toHaveCount(1);
+    $sub = Subscription::first();
+    expect($sub->billing_cycle_days)->toBe(14);
+});
+
+it('detects a quarterly subscription (~90-day cadence)', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([270, 180, 90] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'OFFICE 365 QUARTERLY', '-119.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    $detected = (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect($detected)->toHaveCount(1);
+    $sub = Subscription::first();
+    expect($sub->billing_cycle_days)->toBe(90);
+});
+
+it('detects a yearly subscription (~365-day cadence)', function () {
+    $today = CarbonImmutable::now();
+
+    // Two yearly charges within the 400-day lookback window.
+    foreach ([395, 30] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'DOMAIN RENEWAL', '-65.00', $today->subDays($daysAgo)->toDateString());
+    }
+
+    $detected = (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect($detected)->toHaveCount(1);
+    $sub = Subscription::first();
+    expect($sub->billing_cycle_days)->toBe(365);
+});
+
+it('rejects a 200-day cadence that sits between quarterly and yearly windows', function () {
+    $today = CarbonImmutable::now();
+
+    foreach ([400, 200] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'IRREGULAR PAY', '-100.00', $today->subDays($daysAgo)->toDateString());
+    }
+
+    expect((new DetectSubscriptionsAction)->handle($this->user))->toBe([]);
+});
+
+it('exposes accepted cycles via isAcceptedCycle for documentation', function () {
+    expect(DetectSubscriptionsAction::isAcceptedCycle(7))->toBeTrue();
+    expect(DetectSubscriptionsAction::isAcceptedCycle(14))->toBeTrue();
+    expect(DetectSubscriptionsAction::isAcceptedCycle(30))->toBeTrue();
+    expect(DetectSubscriptionsAction::isAcceptedCycle(90))->toBeTrue();
+    expect(DetectSubscriptionsAction::isAcceptedCycle(365))->toBeTrue();
+    expect(DetectSubscriptionsAction::isAcceptedCycle(50))->toBeFalse();
+    expect(DetectSubscriptionsAction::isAcceptedCycle(200))->toBeFalse();
+    expect(DetectSubscriptionsAction::isAcceptedCycle(400))->toBeFalse();
 });
 
 it('respects a confirmed_duplicate resolution and leaves the flag in place', function () {

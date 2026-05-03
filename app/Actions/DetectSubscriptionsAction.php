@@ -17,8 +17,8 @@ use Illuminate\Support\Collection;
  * Looks back across the user's expenses, groups them by normalized merchant
  * description, and promotes a group to a Subscription when it meets all of:
  *   - at least MIN_OCCURRENCES charges,
- *   - the median gap between consecutive charges falls in the monthly window
- *     [MIN_CYCLE_DAYS, MAX_CYCLE_DAYS],
+ *   - the median gap between consecutive charges falls into one of the
+ *     accepted cycle windows (weekly, biweekly, monthly, quarterly, yearly),
  *   - the amount stays consistent (relative spread under AMOUNT_TOLERANCE).
  *
  * Each merchant produces at most one row in `subscriptions` — we upsert by
@@ -33,13 +33,28 @@ class DetectSubscriptionsAction
 {
     public const MIN_OCCURRENCES = 2;
 
-    public const MIN_CYCLE_DAYS = 25;
-
-    public const MAX_CYCLE_DAYS = 35;
+    /**
+     * Accepted billing-cycle windows. Each window is an inclusive [min, max]
+     * range in days. The label is informational only — the UI derives its
+     * own label from `billing_cycle_days` for backward compatibility.
+     *
+     * @var list<array{label: string, min: int, max: int}>
+     */
+    public const CYCLE_WINDOWS = [
+        ['label' => 'weekly', 'min' => 6, 'max' => 8],
+        ['label' => 'biweekly', 'min' => 13, 'max' => 15],
+        ['label' => 'monthly', 'min' => 25, 'max' => 35],
+        ['label' => 'quarterly', 'min' => 85, 'max' => 95],
+        ['label' => 'yearly', 'min' => 350, 'max' => 380],
+    ];
 
     public const AMOUNT_TOLERANCE = 0.10; // ±10 % of the median amount
 
-    public const LOOKBACK_DAYS = 180;
+    /**
+     * Long enough to fit at least two yearly charges (~365d cycle) in the
+     * window, with headroom for the second charge to slip a few weeks late.
+     */
+    public const LOOKBACK_DAYS = 400;
 
     public const DUPLICATE_AMOUNT_TOLERANCE = 0.15;
 
@@ -187,7 +202,7 @@ class DetectSubscriptionsAction
         }
 
         $cycle = $this->median($deltas);
-        if ($cycle < self::MIN_CYCLE_DAYS || $cycle > self::MAX_CYCLE_DAYS) {
+        if (! self::isAcceptedCycle($cycle)) {
             return null;
         }
 
@@ -239,6 +254,17 @@ class DetectSubscriptionsAction
                 'next_expected_charge_at' => $next->toDateString(),
             ],
         );
+    }
+
+    public static function isAcceptedCycle(int $cycleDays): bool
+    {
+        foreach (self::CYCLE_WINDOWS as $window) {
+            if ($cycleDays >= $window['min'] && $cycleDays <= $window['max']) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

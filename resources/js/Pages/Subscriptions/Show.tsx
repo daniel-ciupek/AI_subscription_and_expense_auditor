@@ -100,11 +100,11 @@ const formatTickDate = (iso: string): string =>
     });
 
 const cycleLabel = (days: number): string => {
-    if (days >= 28 && days <= 32) return 'Monthly';
     if (days >= 6 && days <= 8) return 'Weekly';
     if (days >= 13 && days <= 15) return 'Biweekly';
-    if (days >= 88 && days <= 95) return 'Quarterly';
-    if (days >= 360 && days <= 370) return 'Yearly';
+    if (days >= 25 && days <= 35) return 'Monthly';
+    if (days >= 85 && days <= 95) return 'Quarterly';
+    if (days >= 350 && days <= 380) return 'Yearly';
     return `Every ${days} days`;
 };
 

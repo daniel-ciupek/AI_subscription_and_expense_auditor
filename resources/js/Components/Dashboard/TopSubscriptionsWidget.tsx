@@ -24,11 +24,11 @@ const formatPln = (value: number): string =>
     }).format(value);
 
 const cycleHint = (days: number): string => {
-    if (days >= 28 && days <= 32) return '/mo';
     if (days >= 6 && days <= 8) return '/wk';
     if (days >= 13 && days <= 15) return '/2wk';
-    if (days >= 88 && days <= 95) return '/qtr';
-    if (days >= 360 && days <= 370) return '/yr';
+    if (days >= 25 && days <= 35) return '/mo';
+    if (days >= 85 && days <= 95) return '/qtr';
+    if (days >= 350 && days <= 380) return '/yr';
     return `/${days}d`;
 };
 

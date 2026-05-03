@@ -1,4 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { FormEvent, useState } from 'react';
 import {
     ArrowLeft,
     CalendarClock,
@@ -7,9 +8,15 @@ import {
     TrendingDown,
     Check,
     GitMerge,
+    Pencil,
+    Trash2,
+    AlertCircle,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/Components/UI/Button';
+import { Modal } from '@/Components/UI/Modal';
+import { FormField } from '@/Components/UI/FormField';
+import { Input } from '@/Components/UI/Input';
 import {
     Bar,
     BarChart,
@@ -29,9 +36,17 @@ interface SubscriptionDetail {
     billing_cycle_days: number;
     last_charge_at: string;
     next_expected_charge_at: string | null;
+    category_id: number | null;
     category: { name: string; slug: string; color: string } | null;
     is_duplicate_of: { id: number; name: string } | null;
     duplicate_resolution: 'confirmed_duplicate' | 'kept_separate' | null;
+}
+
+interface CategoryOption {
+    id: number;
+    name: string;
+    slug: string;
+    color: string;
 }
 
 interface Charge {
@@ -51,10 +66,19 @@ interface Stats {
 
 interface SubscriptionShowProps {
     subscription: SubscriptionDetail;
+    categories: CategoryOption[];
     monthlyCost: number;
     stats: Stats;
     charges: Charge[];
 }
+
+const cyclePresets: Array<{ label: string; days: number }> = [
+    { label: 'Weekly', days: 7 },
+    { label: 'Biweekly', days: 14 },
+    { label: 'Monthly', days: 30 },
+    { label: 'Quarterly', days: 90 },
+    { label: 'Yearly', days: 365 },
+];
 
 const formatPln = (value: number): string =>
     new Intl.NumberFormat('pl-PL', {
@@ -106,12 +130,48 @@ const ChartTooltip = ({ active, payload }: ChartTooltipProps) => {
 
 export default function SubscriptionShow({
     subscription,
+    categories,
     monthlyCost,
     stats,
     charges,
 }: SubscriptionShowProps) {
     const reduce = useReducedMotion();
     const chartData = [...charges].reverse();
+
+    const [editOpen, setEditOpen] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+
+    const editForm = useForm({
+        name: subscription.name,
+        amount: subscription.amount.toFixed(2),
+        currency: subscription.currency,
+        billing_cycle_days: String(subscription.billing_cycle_days),
+        last_charge_at: subscription.last_charge_at,
+        category_id: subscription.category_id !== null
+            ? String(subscription.category_id)
+            : '',
+    });
+
+    const handleEditSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        editForm.transform((data) => ({
+            ...data,
+            amount: data.amount,
+            billing_cycle_days: Number(data.billing_cycle_days),
+            category_id: data.category_id === '' ? null : Number(data.category_id),
+        }));
+        editForm.patch(route('subscriptions.update', subscription.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setEditOpen(false);
+                editForm.reset();
+            },
+        });
+    };
+
+    const handleDelete = () => {
+        router.delete(route('subscriptions.destroy', subscription.id));
+    };
 
     const listVariants = reduce
         ? undefined
@@ -154,18 +214,37 @@ export default function SubscriptionShow({
                                 {formatPln(subscription.amount)} {subscription.currency}
                             </p>
                         </div>
-                        {subscription.category && (
-                            <span
-                                className="shrink-0 inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1"
-                                style={{
-                                    color: subscription.category.color,
-                                    backgroundColor: `${subscription.category.color}1A`,
-                                    borderColor: `${subscription.category.color}55`,
-                                }}
+                        <div className="shrink-0 flex items-center gap-2 flex-wrap">
+                            {subscription.category && (
+                                <span
+                                    className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1"
+                                    style={{
+                                        color: subscription.category.color,
+                                        backgroundColor: `${subscription.category.color}1A`,
+                                        borderColor: `${subscription.category.color}55`,
+                                    }}
+                                >
+                                    {subscription.category.name}
+                                </span>
+                            )}
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setEditOpen(true)}
                             >
-                                {subscription.category.name}
-                            </span>
-                        )}
+                                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                                Edit
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteOpen(true)}
+                                className="text-state-danger hover:text-state-danger hover:bg-state-danger/10"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                Delete
+                            </Button>
+                        </div>
                     </div>
                 </div>
             }
@@ -450,6 +529,236 @@ export default function SubscriptionShow({
                     </motion.ul>
                 </Card>
             )}
+
+            <Modal
+                open={editOpen}
+                onClose={() => setEditOpen(false)}
+                title="Edit subscription"
+                description="Adjust the merchant, amount, or billing cadence."
+                maxWidth="lg"
+            >
+                <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+                    <FormField
+                        label="Name"
+                        required
+                        error={editForm.errors.name}
+                    >
+                        {(id) => (
+                            <Input
+                                id={id}
+                                value={editForm.data.name}
+                                onChange={(e) =>
+                                    editForm.setData('name', e.target.value)
+                                }
+                                error={Boolean(editForm.errors.name)}
+                                autoFocus
+                            />
+                        )}
+                    </FormField>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                            label="Amount"
+                            required
+                            error={editForm.errors.amount}
+                        >
+                            {(id) => (
+                                <Input
+                                    id={id}
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    inputMode="decimal"
+                                    value={editForm.data.amount}
+                                    onChange={(e) =>
+                                        editForm.setData('amount', e.target.value)
+                                    }
+                                    error={Boolean(editForm.errors.amount)}
+                                    className="font-mono tabular-nums"
+                                />
+                            )}
+                        </FormField>
+
+                        <FormField
+                            label="Currency"
+                            required
+                            error={editForm.errors.currency}
+                            helperText="3-letter ISO code (PLN, EUR, USD…)"
+                        >
+                            {(id) => (
+                                <Input
+                                    id={id}
+                                    value={editForm.data.currency}
+                                    onChange={(e) =>
+                                        editForm.setData(
+                                            'currency',
+                                            e.target.value.toUpperCase().slice(0, 3),
+                                        )
+                                    }
+                                    maxLength={3}
+                                    error={Boolean(editForm.errors.currency)}
+                                    className="font-mono uppercase"
+                                />
+                            )}
+                        </FormField>
+                    </div>
+
+                    <FormField
+                        label="Billing cycle (days)"
+                        required
+                        error={editForm.errors.billing_cycle_days}
+                    >
+                        {(id) => (
+                            <div className="flex flex-col gap-2">
+                                <Input
+                                    id={id}
+                                    type="number"
+                                    min="1"
+                                    max="730"
+                                    value={editForm.data.billing_cycle_days}
+                                    onChange={(e) =>
+                                        editForm.setData(
+                                            'billing_cycle_days',
+                                            e.target.value,
+                                        )
+                                    }
+                                    error={Boolean(
+                                        editForm.errors.billing_cycle_days,
+                                    )}
+                                    className="font-mono tabular-nums"
+                                />
+                                <div className="flex flex-wrap gap-1.5">
+                                    {cyclePresets.map((preset) => {
+                                        const active =
+                                            Number(editForm.data.billing_cycle_days) ===
+                                            preset.days;
+                                        return (
+                                            <button
+                                                key={preset.days}
+                                                type="button"
+                                                onClick={() =>
+                                                    editForm.setData(
+                                                        'billing_cycle_days',
+                                                        String(preset.days),
+                                                    )
+                                                }
+                                                className={`text-xs px-2.5 py-1 rounded-full ring-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-elevated ${
+                                                    active
+                                                        ? 'bg-accent-primary/20 text-accent-neon ring-accent-neon/40'
+                                                        : 'text-text-secondary ring-white/10 hover:bg-white/5 hover:text-text-primary'
+                                                }`}
+                                            >
+                                                {preset.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </FormField>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                            label="Last charged"
+                            required
+                            error={editForm.errors.last_charge_at}
+                        >
+                            {(id) => (
+                                <Input
+                                    id={id}
+                                    type="date"
+                                    value={editForm.data.last_charge_at}
+                                    max={new Date().toISOString().slice(0, 10)}
+                                    onChange={(e) =>
+                                        editForm.setData(
+                                            'last_charge_at',
+                                            e.target.value,
+                                        )
+                                    }
+                                    error={Boolean(editForm.errors.last_charge_at)}
+                                />
+                            )}
+                        </FormField>
+
+                        <FormField
+                            label="Category"
+                            error={editForm.errors.category_id}
+                        >
+                            {(id) => (
+                                <select
+                                    id={id}
+                                    value={editForm.data.category_id}
+                                    onChange={(e) =>
+                                        editForm.setData(
+                                            'category_id',
+                                            e.target.value,
+                                        )
+                                    }
+                                    className="h-10 w-full rounded-2xl px-4 text-sm bg-bg-surface border border-white/10 text-text-primary transition-colors duration-200 focus:outline-none focus:border-accent-neon/50 focus-visible:ring-2 focus-visible:ring-accent-neon focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                                >
+                                    <option value="">Uncategorized</option>
+                                    {categories.map((cat) => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </FormField>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setEditOpen(false)}
+                            disabled={editForm.processing}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            loading={editForm.processing}
+                        >
+                            Save changes
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal
+                open={deleteOpen}
+                onClose={() => setDeleteOpen(false)}
+                title="Delete subscription?"
+                maxWidth="sm"
+            >
+                <div className="flex items-start gap-3 mb-5">
+                    <div className="rounded-xl bg-state-danger/10 p-2 ring-1 ring-state-danger/30 shrink-0">
+                        <AlertCircle
+                            className="h-5 w-5 text-state-danger"
+                            aria-hidden="true"
+                        />
+                    </div>
+                    <p className="text-sm text-text-secondary">
+                        This removes <span className="text-text-primary font-medium">{subscription.name}</span> from
+                        your subscription list. The matching transactions stay
+                        intact. Detection can re-create it on the next run.
+                    </p>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <Button
+                        variant="ghost"
+                        onClick={() => setDeleteOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button variant="danger" onClick={handleDelete}>
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Delete
+                    </Button>
+                </div>
+            </Modal>
         </AuthenticatedLayout>
     );
 }

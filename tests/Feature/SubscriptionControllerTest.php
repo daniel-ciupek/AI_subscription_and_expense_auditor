@@ -404,3 +404,199 @@ it('returns 403 when one user tries to resolve duplicates on another user\'s sub
         ->post(route('subscriptions.keep-separate', $bobSub))
         ->assertForbidden();
 });
+
+it('updates a subscription and recomputes the next expected charge', function () {
+    $user = User::factory()->create();
+    $entertainment = Category::query()->where('slug', 'entertainment')->firstOrFail();
+    $sub = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'OLD NAME',
+        'amount' => '19.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('subscriptions.update', $sub), [
+            'name' => 'New Name',
+            'amount' => '29.99',
+            'currency' => 'eur',
+            'billing_cycle_days' => 90,
+            'last_charge_at' => '2026-04-15',
+            'category_id' => $entertainment->id,
+        ])
+        ->assertRedirect(route('subscriptions.show', $sub))
+        ->assertSessionHas('flash');
+
+    $sub->refresh();
+    expect($sub->name)->toBe('New Name');
+    expect((float) $sub->amount)->toBe(29.99);
+    expect($sub->currency)->toBe('EUR');
+    expect($sub->billing_cycle_days)->toBe(90);
+    expect($sub->last_charge_at->toDateString())->toBe('2026-04-15');
+    // 2026-04-15 + 90 days = 2026-07-14
+    expect($sub->next_expected_charge_at?->toDateString())->toBe('2026-07-14');
+    expect($sub->category_id)->toBe($entertainment->id);
+});
+
+it('allows clearing the category by passing null', function () {
+    $user = User::factory()->create();
+    $entertainment = Category::query()->where('slug', 'entertainment')->firstOrFail();
+    $sub = Subscription::create([
+        'user_id' => $user->id,
+        'category_id' => $entertainment->id,
+        'name' => 'TEST',
+        'amount' => '10.00',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('subscriptions.update', $sub), [
+            'name' => 'TEST',
+            'amount' => '10.00',
+            'currency' => 'PLN',
+            'billing_cycle_days' => 30,
+            'last_charge_at' => '2026-04-01',
+            'category_id' => null,
+        ])
+        ->assertRedirect();
+
+    expect($sub->refresh()->category_id)->toBeNull();
+});
+
+it('rejects invalid update payloads with validation errors', function () {
+    $user = User::factory()->create();
+    $sub = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'TEST',
+        'amount' => '10.00',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('subscriptions.show', $sub))
+        ->patch(route('subscriptions.update', $sub), [
+            'name' => '',
+            'amount' => '-5',
+            'currency' => 'EURO',
+            'billing_cycle_days' => 0,
+            'last_charge_at' => 'tomorrow',
+        ])
+        ->assertRedirect(route('subscriptions.show', $sub))
+        ->assertSessionHasErrors([
+            'name',
+            'amount',
+            'currency',
+            'billing_cycle_days',
+            'last_charge_at',
+        ]);
+
+    // Original values untouched.
+    expect($sub->refresh()->name)->toBe('TEST');
+});
+
+it('returns 403 when one user tries to update another user\'s subscription', function () {
+    $alice = User::factory()->create();
+    $bob = User::factory()->create();
+    $bobSub = Subscription::create([
+        'user_id' => $bob->id,
+        'name' => 'BOBs HBO',
+        'amount' => '29.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($alice)
+        ->patch(route('subscriptions.update', $bobSub), [
+            'name' => 'pwned',
+            'amount' => '0.01',
+            'currency' => 'PLN',
+            'billing_cycle_days' => 30,
+            'last_charge_at' => '2026-04-01',
+        ])
+        ->assertForbidden();
+
+    expect($bobSub->refresh()->name)->toBe('BOBs HBO');
+});
+
+it('deletes a subscription and redirects to the index', function () {
+    $user = User::factory()->create();
+    $sub = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'DELETE ME',
+        'amount' => '10.00',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('subscriptions.destroy', $sub))
+        ->assertRedirect(route('subscriptions.index'))
+        ->assertSessionHas('flash');
+
+    expect(Subscription::query()->whereKey($sub->id)->exists())->toBeFalse();
+});
+
+it('clears is_duplicate_of_id on children when their canonical is deleted', function () {
+    $user = User::factory()->create();
+    $canonical = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'NETFLIX',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+    $child = Subscription::create([
+        'user_id' => $user->id,
+        'name' => 'NETFLIX EU',
+        'amount' => '49.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-15',
+        'next_expected_charge_at' => '2026-05-15',
+        'is_duplicate_of_id' => $canonical->id,
+        'duplicate_resolution' => DuplicateResolution::ConfirmedDuplicate->value,
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('subscriptions.destroy', $canonical))
+        ->assertRedirect(route('subscriptions.index'));
+
+    $child->refresh();
+    expect($child->is_duplicate_of_id)->toBeNull();
+    expect($child->duplicate_resolution)->toBeNull();
+});
+
+it('returns 403 when one user tries to delete another user\'s subscription', function () {
+    $alice = User::factory()->create();
+    $bob = User::factory()->create();
+    $bobSub = Subscription::create([
+        'user_id' => $bob->id,
+        'name' => 'BOBs SUB',
+        'amount' => '29.99',
+        'currency' => 'PLN',
+        'billing_cycle_days' => 30,
+        'last_charge_at' => '2026-04-01',
+        'next_expected_charge_at' => '2026-05-01',
+    ]);
+
+    $this->actingAs($alice)
+        ->delete(route('subscriptions.destroy', $bobSub))
+        ->assertForbidden();
+
+    expect(Subscription::query()->whereKey($bobSub->id)->exists())->toBeTrue();
+});

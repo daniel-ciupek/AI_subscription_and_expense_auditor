@@ -41,6 +41,10 @@ Route::middleware('auth')->group(function () {
         ->name('subscriptions.detect');
     Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show'])
         ->name('subscriptions.show');
+    Route::patch('/subscriptions/{subscription}', [SubscriptionController::class, 'update'])
+        ->name('subscriptions.update');
+    Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy'])
+        ->name('subscriptions.destroy');
     Route::post('/subscriptions/{subscription}/confirm-duplicate', [SubscriptionController::class, 'confirmDuplicate'])
         ->name('subscriptions.confirm-duplicate');
     Route::post('/subscriptions/{subscription}/keep-separate', [SubscriptionController::class, 'keepSeparate'])

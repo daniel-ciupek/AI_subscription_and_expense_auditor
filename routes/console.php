@@ -14,3 +14,8 @@ Schedule::command('subscriptions:send-upcoming-charge-notices')
     ->dailyAt('08:00')
     ->onOneServer()
     ->withoutOverlapping();
+
+Schedule::command('imports:prune-deleted')
+    ->dailyAt('03:00')
+    ->onOneServer()
+    ->withoutOverlapping();

@@ -22,6 +22,7 @@
         "laravel/pail": "^1.2.5",
         "laravel/pint": "^1.27",
         "laravel/sail": "^1.57",
+        "laravel/telescope": "^5.20",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^4.6",
@@ -58,7 +59,7 @@
         ],
         "lint": "vendor/bin/pint",
         "lint:test": "vendor/bin/pint --test",
-        "analyse": "vendor/bin/phpstan analyse --memory-limit=2G",
+        "analyse": "TELESCOPE_ENABLED=false vendor/bin/phpstan analyse --memory-limit=2G",
         "refactor": "vendor/bin/rector process",
         "refactor:dry": "vendor/bin/rector process --dry-run",
         "ci": [
@@ -87,7 +88,9 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "laravel/telescope"
+            ]
         }
     },
     "config": {

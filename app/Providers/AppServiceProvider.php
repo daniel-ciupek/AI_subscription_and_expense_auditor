@@ -19,6 +19,19 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // Telescope is a dev-only tool. Registering it conditionally here
+        // (instead of bootstrap/providers.php) keeps prod from booting it
+        // when the package is excluded by `composer install --no-dev`.
+        // The TELESCOPE_ENABLED=false env knob also lets us short-circuit
+        // it in scenarios that boot the framework without Redis available
+        // (e.g., Larastan analysis on the host).
+        if ($this->app->environment('local')
+            && (bool) config('telescope.enabled', true)
+            && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
+            $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
+            $this->app->register(TelescopeServiceProvider::class);
+        }
+
         $this->app->singleton(AiCategorizerInterface::class, function (): AiCategorizerInterface {
             $driver = (string) config('services.ai.driver', 'fake');
 

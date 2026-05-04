@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use App\Actions\DetectSubscriptionsAction;
+use App\Contracts\AiSubscriptionDetectorInterface;
+use App\DTOs\AiSubscriptionDetection;
 use App\Enums\DuplicateResolution;
+use App\Enums\SubscriptionDetectionSource;
 use App\Models\Category;
 use App\Models\Import;
 use App\Models\Subscription;
@@ -11,6 +14,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\CategorySeeder;
+use Mockery\MockInterface;
 
 beforeEach(function () {
     $this->seed(CategorySeeder::class);
@@ -342,4 +346,151 @@ it('respects a confirmed_duplicate resolution and leaves the flag in place', fun
     expect($second->is_duplicate_of_id)->toBe($first->id);
     expect($second->duplicate_resolution)
         ->toBe(DuplicateResolution::ConfirmedDuplicate);
+});
+
+it('marks rule-detected subscriptions with detection_source=rule', function () {
+    $today = CarbonImmutable::now();
+    foreach ([90, 60, 30] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    (new DetectSubscriptionsAction)->handle($this->user);
+
+    expect(Subscription::first()->detection_source)
+        ->toBe(SubscriptionDetectionSource::Rule);
+});
+
+it('promotes an AI-confirmed ambiguous group to a subscription', function () {
+    $today = CarbonImmutable::now();
+
+    // Three charges with a ~50-day cadence — outside any rule window.
+    foreach ([150, 100, 50] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'WEIRD GYM', '-79.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    /** @var MockInterface&AiSubscriptionDetectorInterface $ai */
+    $ai = Mockery::mock(AiSubscriptionDetectorInterface::class);
+    $ai->shouldReceive('version')->andReturn('test-v1');
+    $ai->shouldReceive('detect')
+        ->once()
+        ->andReturn(new AiSubscriptionDetection(
+            name: 'WEIRD GYM',
+            billingCycleDays: 30,
+            amount: 79.99,
+            currency: 'PLN',
+            confidence: 0.85,
+            rawResponse: ['driver' => 'test'],
+        ));
+
+    (new DetectSubscriptionsAction($ai))->handle($this->user);
+
+    expect(Subscription::count())->toBe(1);
+    $sub = Subscription::first();
+    expect($sub->name)->toBe('WEIRD GYM');
+    expect($sub->billing_cycle_days)->toBe(30);
+    expect((float) $sub->amount)->toBe(79.99);
+    expect($sub->detection_source)->toBe(SubscriptionDetectionSource::Ai);
+});
+
+it('skips an AI suggestion below the confidence threshold', function () {
+    $today = CarbonImmutable::now();
+    foreach ([150, 100, 50] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'MAYBE NOISE', '-50.00', $today->subDays($daysAgo)->toDateString());
+    }
+
+    /** @var MockInterface&AiSubscriptionDetectorInterface $ai */
+    $ai = Mockery::mock(AiSubscriptionDetectorInterface::class);
+    $ai->shouldReceive('version')->andReturn('test-v1');
+    $ai->shouldReceive('detect')
+        ->once()
+        ->andReturn(new AiSubscriptionDetection(
+            name: 'MAYBE NOISE',
+            billingCycleDays: 30,
+            amount: 50.00,
+            currency: 'PLN',
+            confidence: 0.5,
+            rawResponse: [],
+        ));
+
+    (new DetectSubscriptionsAction($ai))->handle($this->user);
+
+    expect(Subscription::count())->toBe(0);
+});
+
+it('rejects AI suggestions whose cycle does not fit any accepted window', function () {
+    $today = CarbonImmutable::now();
+    foreach ([150, 100, 50] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'OFF SCHEDULE', '-100.00', $today->subDays($daysAgo)->toDateString());
+    }
+
+    /** @var MockInterface&AiSubscriptionDetectorInterface $ai */
+    $ai = Mockery::mock(AiSubscriptionDetectorInterface::class);
+    $ai->shouldReceive('version')->andReturn('test-v1');
+    $ai->shouldReceive('detect')
+        ->once()
+        ->andReturn(new AiSubscriptionDetection(
+            name: 'OFF SCHEDULE',
+            billingCycleDays: 50, // not in CYCLE_WINDOWS
+            amount: 100.00,
+            currency: 'PLN',
+            confidence: 0.95,
+            rawResponse: [],
+        ));
+
+    (new DetectSubscriptionsAction($ai))->handle($this->user);
+
+    expect(Subscription::count())->toBe(0);
+});
+
+it('does not consult AI when rule-based detection already matches', function () {
+    $today = CarbonImmutable::now();
+    foreach ([90, 60, 30] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'NETFLIX', '-49.99', $today->subDays($daysAgo)->toDateString());
+    }
+
+    /** @var MockInterface&AiSubscriptionDetectorInterface $ai */
+    $ai = Mockery::mock(AiSubscriptionDetectorInterface::class);
+    $ai->shouldNotReceive('detect');
+
+    (new DetectSubscriptionsAction($ai))->handle($this->user);
+
+    expect(Subscription::count())->toBe(1);
+});
+
+it('caps the number of AI calls per detection run', function () {
+    $today = CarbonImmutable::now();
+
+    // Build (AI_MAX_GROUPS_PER_RUN + 5) ambiguous groups, all 50d cadence.
+    // Distinct merchant labels (no digits — the normalizer strips them
+    // and would otherwise collapse everything into one group).
+    $labels = [
+        'ALPHA', 'BETA', 'GAMMA', 'DELTA', 'EPSILON',
+        'ZETA', 'ETA', 'THETA', 'IOTA', 'KAPPA',
+        'LAMBDA', 'OMEGA', 'NU', 'XI', 'PI',
+    ];
+    $groupCount = DetectSubscriptionsAction::AI_MAX_GROUPS_PER_RUN + 5;
+    for ($g = 0; $g < $groupCount; $g++) {
+        foreach ([150, 100, 50] as $daysAgo) {
+            makeTx($this->user->id, $this->import->id, $labels[$g].' GYM', '-9.99', $today->subDays($daysAgo)->toDateString());
+        }
+    }
+
+    /** @var MockInterface&AiSubscriptionDetectorInterface $ai */
+    $ai = Mockery::mock(AiSubscriptionDetectorInterface::class);
+    $ai->shouldReceive('version')->andReturn('test-v1');
+    // Expect exactly AI_MAX_GROUPS_PER_RUN calls — extras must be skipped.
+    $ai->shouldReceive('detect')
+        ->times(DetectSubscriptionsAction::AI_MAX_GROUPS_PER_RUN)
+        ->andReturn(null);
+
+    (new DetectSubscriptionsAction($ai))->handle($this->user);
+});
+
+it('returns an empty list when AI detector is null and no rule match', function () {
+    $today = CarbonImmutable::now();
+    foreach ([150, 100, 50] as $daysAgo) {
+        makeTx($this->user->id, $this->import->id, 'IRREGULAR', '-100.00', $today->subDays($daysAgo)->toDateString());
+    }
+
+    expect((new DetectSubscriptionsAction)->handle($this->user))->toBe([]);
 });

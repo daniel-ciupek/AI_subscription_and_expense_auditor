@@ -11,6 +11,7 @@ import {
     Pencil,
     Trash2,
     AlertCircle,
+    Sparkles,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/Components/UI/Button';
@@ -40,6 +41,7 @@ interface SubscriptionDetail {
     category: { name: string; slug: string; color: string } | null;
     is_duplicate_of: { id: number; name: string } | null;
     duplicate_resolution: 'confirmed_duplicate' | 'kept_separate' | null;
+    detection_source: 'rule' | 'ai';
 }
 
 interface CategoryOption {
@@ -206,9 +208,23 @@ export default function SubscriptionShow({
                     </Link>
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="min-w-0">
-                            <h1 className="text-2xl font-semibold text-text-primary truncate">
-                                {subscription.name}
-                            </h1>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h1 className="text-2xl font-semibold text-text-primary truncate">
+                                    {subscription.name}
+                                </h1>
+                                {subscription.detection_source === 'ai' && (
+                                    <span
+                                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-accent-primary/15 text-accent-neon ring-1 ring-accent-neon/30"
+                                        title="Detected by AI from an ambiguous transaction group"
+                                    >
+                                        <Sparkles
+                                            className="h-3 w-3"
+                                            aria-hidden="true"
+                                        />
+                                        AI
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-sm text-text-secondary mt-1 font-mono">
                                 {cycleLabel(subscription.billing_cycle_days)} ·{' '}
                                 {formatPln(subscription.amount)} {subscription.currency}

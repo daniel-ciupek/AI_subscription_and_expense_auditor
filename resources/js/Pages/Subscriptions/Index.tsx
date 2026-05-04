@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Repeat, Upload, CalendarClock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Repeat, Upload, CalendarClock, AlertTriangle, RefreshCw, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -26,6 +26,7 @@ interface SubscriptionRow {
     } | null;
     is_duplicate_of_id: number | null;
     duplicate_of_name: string | null;
+    detection_source: 'rule' | 'ai';
 }
 
 interface SubscriptionsIndexProps {
@@ -318,9 +319,23 @@ export default function SubscriptionsIndex({
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="text-base font-semibold text-text-primary truncate">
-                                                {sub.name}
-                                            </h3>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <h3 className="text-base font-semibold text-text-primary truncate">
+                                                    {sub.name}
+                                                </h3>
+                                                {sub.detection_source === 'ai' && (
+                                                    <span
+                                                        className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-accent-primary/15 text-accent-neon ring-1 ring-accent-neon/30"
+                                                        title="Detected by AI from an ambiguous transaction group"
+                                                    >
+                                                        <Sparkles
+                                                            className="h-2.5 w-2.5"
+                                                            aria-hidden="true"
+                                                        />
+                                                        AI
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-xs text-text-secondary mt-0.5 font-mono">
                                                 {cycleLabel(sub.billing_cycle_days)}
                                             </p>

@@ -32,7 +32,7 @@ class SubscriptionController extends Controller
             ->get([
                 'id', 'category_id', 'name', 'amount', 'currency',
                 'billing_cycle_days', 'last_charge_at', 'next_expected_charge_at',
-                'is_duplicate_of_id',
+                'is_duplicate_of_id', 'detection_source',
             ]);
 
         $namesById = $rows->pluck('name', 'id');
@@ -55,6 +55,7 @@ class SubscriptionController extends Controller
                 'duplicate_of_name' => $sub->is_duplicate_of_id !== null
                     ? ($namesById[$sub->is_duplicate_of_id] ?? null)
                     : null,
+                'detection_source' => $sub->detection_source->value,
             ])
             ->all();
 
@@ -159,6 +160,7 @@ class SubscriptionController extends Controller
                 ],
                 'is_duplicate_of' => $duplicateOf,
                 'duplicate_resolution' => $subscription->duplicate_resolution?->value,
+                'detection_source' => $subscription->detection_source->value,
             ],
             'categories' => $categories,
             'monthlyCost' => SubscriptionMonthlyCost::forCycle(

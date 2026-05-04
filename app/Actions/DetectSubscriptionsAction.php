@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions;
 
+use App\Contracts\AiSubscriptionDetectorInterface;
+use App\Enums\SubscriptionDetectionSource;
 use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\User;
@@ -61,6 +63,23 @@ class DetectSubscriptionsAction
     public const DUPLICATE_MIN_TOKEN_LENGTH = 4;
 
     /**
+     * Minimum confidence the AI fallback must report to promote an
+     * ambiguous group to a subscription. Anything lower is treated as
+     * "not sure" and discarded.
+     */
+    public const AI_CONFIDENCE_THRESHOLD = 0.7;
+
+    /**
+     * Hard cap on how many ambiguous groups we forward to the model in a
+     * single detection run. Cost control.
+     */
+    public const AI_MAX_GROUPS_PER_RUN = 10;
+
+    public function __construct(
+        private readonly ?AiSubscriptionDetectorInterface $aiDetector = null,
+    ) {}
+
+    /**
      * @return array<int, Subscription>
      */
     public function handle(User $user): array
@@ -84,6 +103,9 @@ class DetectSubscriptionsAction
         );
 
         $persisted = [];
+        /** @var list<Collection<int, Transaction>> $ambiguous */
+        $ambiguous = [];
+
         foreach ($groups as $key => $group) {
             if ($key === '' || $group->count() < self::MIN_OCCURRENCES) {
                 continue;
@@ -91,15 +113,95 @@ class DetectSubscriptionsAction
 
             $analysis = $this->analyze($group);
             if ($analysis === null) {
+                $ambiguous[] = $group;
+
                 continue;
             }
 
-            $persisted[] = $this->upsert($user, $analysis);
+            $persisted[] = $this->upsert($user, $analysis, SubscriptionDetectionSource::Rule);
+        }
+
+        if ($this->aiDetector !== null && $ambiguous !== []) {
+            $persisted = array_merge(
+                $persisted,
+                $this->runAiFallback($user, $ambiguous),
+            );
         }
 
         $this->markDuplicates($user);
 
         return $persisted;
+    }
+
+    /**
+     * @param  list<Collection<int, Transaction>>  $ambiguousGroups
+     * @return list<Subscription>
+     */
+    private function runAiFallback(User $user, array $ambiguousGroups): array
+    {
+        if ($this->aiDetector === null) {
+            return [];
+        }
+
+        $persisted = [];
+        $budget = self::AI_MAX_GROUPS_PER_RUN;
+
+        foreach ($ambiguousGroups as $group) {
+            if ($budget <= 0) {
+                break;
+            }
+            $budget--;
+
+            $payload = $this->groupToPayload($group);
+            $result = $this->aiDetector->detect($payload);
+            if ($result === null) {
+                continue;
+            }
+
+            if ($result->confidence < self::AI_CONFIDENCE_THRESHOLD) {
+                continue;
+            }
+
+            if (! self::isAcceptedCycle($result->billingCycleDays)) {
+                continue;
+            }
+
+            $latest = $group->sortByDesc(fn (Transaction $tx) => $tx->posted_at->timestamp)->first();
+            if ($latest === null) {
+                continue;
+            }
+
+            $analysis = [
+                'name' => $result->name !== '' ? $result->name : $latest->description,
+                'amount' => number_format($result->amount, 2, '.', ''),
+                'currency' => $result->currency !== '' ? $result->currency : 'PLN',
+                'billing_cycle_days' => $result->billingCycleDays,
+                'last_charge_at' => CarbonImmutable::instance($latest->posted_at),
+                'category_id' => $this->modeCategoryId($group->all()),
+            ];
+
+            $persisted[] = $this->upsert($user, $analysis, SubscriptionDetectionSource::Ai);
+        }
+
+        return $persisted;
+    }
+
+    /**
+     * @param  Collection<int, Transaction>  $group
+     * @return list<array{posted_at: string, amount: float, description: string}>
+     */
+    private function groupToPayload(Collection $group): array
+    {
+        return array_values(
+            $group->sortBy(fn (Transaction $tx) => $tx->posted_at->timestamp)
+                ->values()
+                ->map(static fn (Transaction $tx): array => [
+                    'posted_at' => $tx->posted_at->toDateString(),
+                    'amount' => round((float) $tx->amount, 2),
+                    'description' => $tx->description,
+                ])
+                ->all(),
+        );
     }
 
     /**
@@ -236,7 +338,7 @@ class DetectSubscriptionsAction
     /**
      * @param  array{name: string, amount: string, currency: string, billing_cycle_days: int, last_charge_at: CarbonImmutable, category_id: int|null}  $data
      */
-    private function upsert(User $user, array $data): Subscription
+    private function upsert(User $user, array $data, SubscriptionDetectionSource $source): Subscription
     {
         $next = $data['last_charge_at']->addDays($data['billing_cycle_days']);
 
@@ -252,6 +354,7 @@ class DetectSubscriptionsAction
                 'currency' => $data['currency'],
                 'last_charge_at' => $data['last_charge_at']->toDateString(),
                 'next_expected_charge_at' => $next->toDateString(),
+                'detection_source' => $source,
             ],
         );
     }

@@ -32,6 +32,9 @@ Thumbs.db
 /.phpstan
 /.rector-cache.php
 
+# Storybook
+/storybook-static
+
 # Local Docker overrides
 docker-compose.override.yml
 

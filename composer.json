@@ -12,11 +12,13 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "phpoffice/phpspreadsheet": "^5.7",
+        "predis/predis": "*",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {
         "driftingly/rector-laravel": "^2.3",
         "fakerphp/faker": "^1.23",
+        "fly-apps/dockerfile-laravel": "*",
         "larastan/larastan": "^3.0",
         "laravel/breeze": "^2.4",
         "laravel/pail": "^1.2.5",

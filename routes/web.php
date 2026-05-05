@@ -1,0 +1,64 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ImportController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SubscriptionController;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+Route::get('/', function () {
+    return Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+        'laravelVersion' => Application::VERSION,
+        'phpVersion' => PHP_VERSION,
+    ]);
+});
+
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
+    Route::get('/imports/create', [ImportController::class, 'create'])->name('imports.create');
+    Route::post('/imports', [ImportController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('imports.store');
+    Route::delete('/imports/{import}', [ImportController::class, 'destroy'])->name('imports.destroy');
+    Route::post('/imports/{import}/retry', [ImportController::class, 'retry'])
+        ->middleware('throttle:10,1')
+        ->name('imports.retry');
+
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
+    Route::post('/subscriptions/detect', [SubscriptionController::class, 'detect'])
+        ->middleware('throttle:10,1')
+        ->name('subscriptions.detect');
+    Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show'])
+        ->name('subscriptions.show');
+    Route::patch('/subscriptions/{subscription}', [SubscriptionController::class, 'update'])
+        ->name('subscriptions.update');
+    Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy'])
+        ->name('subscriptions.destroy');
+    Route::post('/subscriptions/{subscription}/confirm-duplicate', [SubscriptionController::class, 'confirmDuplicate'])
+        ->name('subscriptions.confirm-duplicate');
+    Route::post('/subscriptions/{subscription}/keep-separate', [SubscriptionController::class, 'keepSeparate'])
+        ->name('subscriptions.keep-separate');
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.read-all');
+});
+
+require __DIR__.'/auth.php';

@@ -1,0 +1,50 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+jobs:
+  pint:
+    name: Pint (PHP formatter)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, fileinfo, gd, zip, bcmath
+          coverage: none
+      - uses: ramsey/composer-install@v3
+        with:
+          composer-options: --no-scripts
+      - run: vendor/bin/pint --test
+
+  larastan:
+    name: Larastan (PHPStan level 8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, fileinfo, gd, zip, bcmath
+          coverage: none
+      - uses: ramsey/composer-install@v3
+        with:
+          composer-options: --no-scripts
+      - run: vendor/bin/phpstan analyse --memory-limit=2G
+
+  frontend:
+    name: ESLint + TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsc --noEmit

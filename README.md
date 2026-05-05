@@ -8,11 +8,27 @@ za które możesz płacić dwa razy.
 Zbudowane jako projekt portfolio — priorytet to czysta architektura,
 testowalność i działający end-to-end flow.
 
-> _Placeholder na zrzuty ekranu — finalne rendery wrzuć do `docs/img/` i podlinkuj tutaj:_
-> - `docs/img/dashboard.png` — dashboard z insightami, area chart, donut, top subs
-> - `docs/img/subscriptions.png` — lista subskrypcji z flagą duplikatów
-> - `docs/img/subscription-detail.png` — strona detalu subskrypcji z bar chartem historii
-> - `docs/img/import.gif` — drag-and-drop CSV → kategoryzacja → dashboard
+## Demo
+
+![Dashboard z 90-dniowym wykresem wydatków, monthly cost i AI insights](docs/img/dashboard.png)
+
+_Dashboard: 90-dniowy area chart, statystyki konta i AI insights z alertem duplikatów (1 znaleziony) oraz spike alert (wydatki +47% vs poprzedni okres)._
+
+![Animowany AI Duplicate Alert Modal](docs/img/subscriptions-ai-alert.png)
+
+_AI Duplicate Alert: wykryty duplikat (NETFLIX EU PREMIUM ↔ NETFLIX SUBSCRIPTION) prezentowany w modalnym alercie z gradient ringiem i floating sparkles. Dismiss persystowany w localStorage żeby nie męczyć usera przy każdym wejściu._
+
+![Lista subskrypcji z badge duplikatu w karcie](docs/img/subscriptions.png)
+
+_Lista subskrypcji: karty z monthly cost, cyklem rozliczeniowym i datą następnego obciążenia. Duplikat oznaczony bezpośrednio w karcie ("Possible duplicate of NETFLIX SUBSCRIPTION 49.99 PLN") — user może rozstrzygnąć ręcznie przez Mark as same / Keep separate._
+
+![Detal subskrypcji z bar chartem historii i statystykami](docs/img/subscription-detail.png)
+
+_Strona detalu subskrypcji: bar chart historii obciążeń (Recharts z gradient fill), 4 karty statystyk (Monthly cost / Total spent / Charges / Avg per charge) oraz pełna lista transakcji powiązanych z merchantem._
+
+![Lista importów z statusem parsowania](docs/img/imports.png)
+
+_Importy: każdy upload CSV przechodzi przez async pipeline (`ProcessImportJob` → batched `CategorizeTransactionsJob` → `DetectSubscriptionsJob`). Status widoczny live; failed imports z opcją retry, soft-delete z 30-dniowym TTL._
 
 ---
 

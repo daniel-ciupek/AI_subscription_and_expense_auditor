@@ -40,3 +40,6 @@ docker-compose.override.yml
 
 # Personal session notes (not part of the public portfolio repo)
 INFORMACJE.md
+
+# Vite
+.vite/
